@@ -32,6 +32,6 @@ def extrair_dados_pbh(nota_xml):
     outras_info = nota_xml.find(".//n:OutrasInformacoes", ns).text
     chave = re.search(r"\d{44}", outras_info)
     chave = chave.group(0) if chave else None
-
+    arquivo_completo = ET.tostring(nota_xml, encoding="utf-8").decode("utf-8")
 
 extrair_dados_pbh(root)

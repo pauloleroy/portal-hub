@@ -22,7 +22,6 @@ def selecionar_xmls() -> list[Path]:
     # Converte cada caminho em Path
     return [Path(a) for a in arquivos]
 
-# Exemplo de uso
 if __name__ == "__main__":
     arquivos = selecionar_xmls()
     if arquivos:

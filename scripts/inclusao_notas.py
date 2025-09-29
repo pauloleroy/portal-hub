@@ -29,6 +29,5 @@ if __name__ == "__main__":
             tree = ET.parse(a)
             root = tree.getroot()
             nota = funcoes_notas.extrair_dados_pbh(root)
-            print(nota)
     else:
         print("Nenhum arquivo selecionado.")

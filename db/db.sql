@@ -28,7 +28,7 @@ CREATE TABLE invoices (
     socio_id INT REFERENCES socios(id), -- opcional, se quiser vincular a um sócio específico
     tipo VARCHAR(50) NOT NULL, -- "nfse_pbh", "nfe", "danfe", etc.
     numero VARCHAR(50) NOT NULL,
-    chave VARCHAR(255) NOT NULL, -- chave de acesso ou identificador único
+    chave VARCHAR(255) NOT NULL UNIQUE, -- chave de acesso ou identificador único
     data_emissao DATE NOT NULL,
     data_competencia DATE, -- mês/ano da competência
     prestador_nome VARCHAR(255),

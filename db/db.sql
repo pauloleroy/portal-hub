@@ -7,8 +7,6 @@ CREATE TABLE empresas (
     detalhes_tributarios VARCHAR(100),      -- 'Anexo III', 'Anexo III, V', '32%', etc.
     ativo BOOLEAN DEFAULT true,
     data_abertura DATE,
-    data_encerramento DATE,
-    observacoes TEXT,
     created_at TIMESTAMP DEFAULT now(),
     updated_at TIMESTAMP DEFAULT now()
 );

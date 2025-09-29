@@ -1,3 +1,6 @@
 venv
 
 identificacao_socios.py
+
+*.pyc
+__pycache__/

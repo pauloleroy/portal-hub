@@ -4,10 +4,6 @@ import re
 from datetime import datetime
 from identificacao_socios import definir_socio
 
-# Carregar xml
-tree = ET.parse("C:\\Users\\paulo\\Downloads\\nfse_202500000000661.xml")
-root = tree.getroot()
-
 
 #NFS - Prefeitura BH
 def extrair_dados_pbh(nota_xml):
@@ -60,7 +56,3 @@ def extrair_dados_pbh(nota_xml):
         'e_cancelada' : e_cancelada,
         'arquivo_completo' : arquivo_completo
     }
-
-
-nota = extrair_dados_pbh(root)
-print(nota)

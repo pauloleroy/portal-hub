@@ -5,8 +5,12 @@ CREATE TABLE empresas (
     nome_fantasia VARCHAR(255),
     regime_tributario VARCHAR(20) NOT NULL, -- 'simples', 'presumido', 'real'
     detalhes_tributarios VARCHAR(100),      -- 'Anexo III', 'Anexo III, V', '32%', etc.
-    ativo BOOLEAN DEFAULT true,
     data_abertura DATE,
+    email VARCHAR(255),
+    telefone VARCHAR(20),
+    situacao_cadastral VARCHAR(50),
+    notificacao_ativa BOOLEAN DEFAULT TRUE,
+    ativo BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT now(),
     updated_at TIMESTAMP DEFAULT now()
 );
@@ -17,12 +21,15 @@ CREATE TABLE socios (
     nome VARCHAR(255) NOT NULL,
     cpf VARCHAR(20) NOT NULL,
     identificador_prof VARCHAR(50),  -- ex: CRM, CRO, OAB, etc.
+    email VARCHAR(255),
+    telefone VARCHAR(20),
+    percentual_participacao NUMERIC(5,2),
     ativo BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT now(),
     updated_at TIMESTAMP DEFAULT now()
 );
 
-CREATE TABLE invoices (
+CREATE TABLE notas (
     id SERIAL PRIMARY KEY,
     empresa_id INT NOT NULL REFERENCES empresas(id),
     socio_id INT REFERENCES socios(id), -- opcional, se quiser vincular a um sócio específico
@@ -39,6 +46,7 @@ CREATE TABLE invoices (
     valor_iss NUMERIC(12,2),
     retencoes_json JSONB, -- ex: IR, INSS, PIS/COFINS/CSLL
     xml_text TEXT, -- XML bruto para consultas futuras
+    link_download TEXT,
     e_cancelada BOOLEAN DEFAULT FALSE, -- flag de cancelamento
     created_at TIMESTAMP DEFAULT now(),
     updated_at TIMESTAMP DEFAULT now()

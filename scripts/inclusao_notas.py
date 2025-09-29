@@ -28,8 +28,9 @@ if __name__ == "__main__":
     arquivos = selecionar_xmls()
     if arquivos:
         for a in arquivos:
-            tree = ET.parse("C:\\Users\\paulo\\Downloads\\nfse_202500000000661.xml")
+            tree = ET.parse(a)
             root = tree.getroot()
             nota = funcoes_notas.extrair_dados_pbh(root)
+            print(nota)
     else:
         print("Nenhum arquivo selecionado.")

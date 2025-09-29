@@ -9,7 +9,6 @@ def selecionar_xmls() -> list[Path]:
     Abre o seletor nativo de arquivos do Windows para múltiplos arquivos XML.
     Retorna uma lista de Paths.
     """
-    # Inicializa Tkinter sem mostrar a janela principal
     root = tk.Tk()
     root.withdraw()
     root.attributes("-topmost", True)  # garante que a janela fique em frente

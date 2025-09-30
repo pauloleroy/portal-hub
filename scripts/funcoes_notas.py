@@ -1,9 +1,9 @@
+#funcoes_notas.py
 import xml.etree.ElementTree as ET
 from decimal import Decimal
 import re
 from datetime import datetime
 from identificacao_socios import definir_socio
-
 
 #NFS - Prefeitura BH
 def extrair_dados_pbh(nota_xml):
@@ -32,13 +32,13 @@ def extrair_dados_pbh(nota_xml):
     chave = re.search(r"\d{44}", outras_info)
     chave = chave.group(0) if chave else None
     discrinacao = nota_xml.find(".//n:Discriminacao", ns).text
-    socio = definir_socio(discrinacao, prestador_doc)
+    socio_id = definir_socio(discrinacao, prestador_doc)
     cancelamento = nota_xml.find(".//n:NfseCancelamento", ns)
     if cancelamento is not None:
         e_cancelada = True
     else:
         e_cancelada = False
-    arquivo_completo = ET.tostring(nota_xml, encoding="utf-8").decode("utf-8")
+    xml_text = ET.tostring(nota_xml, encoding="utf-8").decode("utf-8")
     return {
         'numero' : numero,
         'tipo' : 'nfse_pbh',
@@ -51,8 +51,7 @@ def extrair_dados_pbh(nota_xml):
         'tomador_doc' : tomador_doc,
         'valor_iss' : valor_iss,
         'chave' : chave,
-        'socio' : socio,
-        'retencoes' : {},
+        'socio_id' : socio_id,
         'e_cancelada' : e_cancelada,
-        'arquivo_completo' : arquivo_completo
+        'xml_text' : xml_text
     }

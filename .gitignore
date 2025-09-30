@@ -4,3 +4,7 @@ identificacao_socios.py
 
 *.pyc
 __pycache__/
+
+.env
+
+*seeds

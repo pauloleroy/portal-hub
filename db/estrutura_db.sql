@@ -6,7 +6,7 @@ CREATE TABLE empresas (
     regime_tributario VARCHAR(20) NOT NULL, -- 'simples', 'presumido', 'real'
     detalhes_tributarios VARCHAR(100),      -- 'Anexo III', 'Anexo III, V', '32%', etc.
     data_abertura DATE,
-    email VARCHAR(255),
+    email TEXT,
     telefone VARCHAR(20),
     situacao_cadastral VARCHAR(50),
     notificacao_ativa BOOLEAN DEFAULT TRUE,

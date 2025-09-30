@@ -4,6 +4,7 @@ from decimal import Decimal
 import re
 from datetime import datetime
 from identificacao_socios import definir_socio
+from datetime import date
 
 #NFS - Prefeitura BH
 def extrair_dados_pbh(nota_xml):
@@ -14,6 +15,7 @@ def extrair_dados_pbh(nota_xml):
     data_competencia = nota_xml.find(".//n:Competencia", ns).text
     data_emissao = datetime.strptime(data_emissao, '%Y-%m-%dT%H:%M:%S').date()
     data_competencia = datetime.strptime(data_competencia, '%Y-%m-%dT%H:%M:%S').date()
+    mes_ref = date(data_emissao.year, data_emissao.month, 1)
     prestador_nome = nota_xml.find(".//n:PrestadorServico//n:RazaoSocial",ns).text
     prestador_doc = nota_xml.find(".//n:IdentificacaoPrestador/n:Cnpj", ns).text
     tomador_nome = nota_xml.find(".//n:TomadorServico/n:RazaoSocial", ns).text
@@ -45,6 +47,7 @@ def extrair_dados_pbh(nota_xml):
         'valor_total' : valor_total,
         'data_emissao' : data_emissao,
         'data_competencia' : data_competencia,
+        'mes_ref' : mes_ref,
         'prestador_nome' : prestador_nome,
         'prestador_doc' : prestador_doc,
         'tomador_nome' : tomador_nome,

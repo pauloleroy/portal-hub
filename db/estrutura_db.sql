@@ -10,6 +10,8 @@ CREATE TABLE empresas (
     telefone VARCHAR(20),
     situacao_cadastral VARCHAR(50),
     notificacao_ativa BOOLEAN DEFAULT TRUE,
+    is_matriz BOOLEAN DEFAULT TRUE,
+    matriz_id INT REFERENCES empresas(id),
     ativo BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT now(),
     updated_at TIMESTAMP DEFAULT now()
@@ -38,6 +40,7 @@ CREATE TABLE notas (
     chave VARCHAR(255) NOT NULL UNIQUE, -- chave de acesso ou identificador único
     data_emissao DATE NOT NULL,
     data_competencia DATE, -- mês/ano da competência
+    mes_ref DATE NOT NULL,
     prestador_nome VARCHAR(255),
     prestador_doc VARCHAR(20),
     tomador_nome VARCHAR(255),

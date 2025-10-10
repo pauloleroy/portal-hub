@@ -48,6 +48,7 @@ CREATE TABLE notas (
     valor_total NUMERIC(12,2),
     valor_iss NUMERIC(12,2),
     retencoes_json JSONB, -- ex: IR, INSS, PIS/COFINS/CSLL
+    cfop VARCHAR(10),
     xml_text TEXT, -- XML bruto para consultas futuras
     link_download TEXT,
     e_cancelada BOOLEAN DEFAULT FALSE, -- flag de cancelamento

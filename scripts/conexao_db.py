@@ -50,7 +50,24 @@ def somar_notas_periodo (conn, empresa_id, data_inicial, data_final):
                     total -= valor
             return total
     except Exception as e:
-        print(f"Erro ao buscar empresa: {e}")
+        print(f"Erro ao buscar dados: {e}")
+        return None
+
+def calcular_iss_periodo(conn, empresa_id, data_inicial, data_final):
+    try:
+        with conn.cursor() as cur:
+            query = """
+                    SELECT SUM(valor_iss)
+                    FROM notas
+                    WHERE empresa_id = %s
+                    AND data_emissao BETWEEN %s AND %s
+                    AND e_cancelada = FALSE;
+                """
+            cur.execute(query, (empresa_id, data_inicial, data_final,))
+            resultado = cur.fetchone()
+            return resultado [0]
+    except Exception as e:
+        print(f"Erro ao buscar dados: {e}")
         return None
 
 def pegar_data_abertura(conn, empresa_id):
@@ -61,7 +78,7 @@ def pegar_data_abertura(conn, empresa_id):
             resultado = cur.fetchone()
             return resultado[0]
     except Exception as e:
-        print(f"Erro ao buscar empresa: {e}")
+        print(f"Erro ao buscar dados: {e}")
         return None
 
 def inserir_dict (conn, tabela, dados):

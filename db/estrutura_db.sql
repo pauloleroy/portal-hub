@@ -21,7 +21,7 @@ CREATE TABLE socios (
     id SERIAL PRIMARY KEY,
     empresa_id INT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
     nome VARCHAR(255) NOT NULL,
-    cpf VARCHAR(20) NOT NULL,
+    cpf VARCHAR(20),
     identificador_prof VARCHAR(50),  -- ex: CRM, CRO, OAB, etc.
     email VARCHAR(255),
     telefone VARCHAR(20),

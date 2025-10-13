@@ -55,6 +55,7 @@ def extrair_dados_pbh(nota_xml):
         'valor_iss' : valor_iss,
         'chave' : chave,
         'socio_id' : socio_id,
+        'cfop' : '5933',
         'e_cancelada' : e_cancelada,
         'xml_text' : xml_text
     }

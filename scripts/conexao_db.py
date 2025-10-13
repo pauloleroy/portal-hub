@@ -9,14 +9,57 @@ def _normalize_cnpj(cnpj: str) -> str | None:
     digits = re.sub(r"\D", "", cnpj)
     return digits if digits else None
 
-# conexao_db.py
+
 def procurar_empresa_id(conn, cnpj):
     try:
-        with conn.cursor() as cur:  # Corrigido: conn.cursor() em vez de conn.cursor
-            query = "SELECT id FROM empresas WHERE cnpj = %s"  # Use parâmetros, não f-string
+        with conn.cursor() as cur:  
+            query = "SELECT id FROM empresas WHERE cnpj = %s" 
             cur.execute(query, (cnpj,))
-            resultado = cur.fetchone()  # Obtenha o resultado
+            resultado = cur.fetchone() 
             return resultado[0] if resultado else None
+    except Exception as e:
+        print(f"Erro ao buscar empresa: {e}")
+        return None
+
+def somar_notas_periodo (conn, empresa_id, data_inicial, data_final):
+    try:
+        with conn.cursor() as cur:
+            query = """
+                        SELECT 
+                            cfop,
+                            COALESCE(SUM(valor_total), 0) AS total
+                        FROM notas
+                        WHERE empresa_id = %s
+                        AND data_emissao BETWEEN %s AND %s
+                        AND e_cancelada = FALSE
+                        GROUP BY cfop
+                        ORDER BY cfop NULLS LAST
+                    """
+            cur.execute(query, (empresa_id, data_inicial, data_final,))
+            resultados = cur.fetchall()
+            total_por_cfop = [{"cfop": cfop, "total": total} for cfop, total in resultados]
+            cfops_entrada = {"5102", "5933", "6933", "6102"}
+            cfops_saida = {"6202", "5202"}
+            total = 0
+            for item in total_por_cfop:
+                cfop = item["cfop"]
+                valor = item["total"]
+                if cfop in cfops_entrada:
+                    total += valor
+                elif cfop in cfops_saida:
+                    total -= valor
+            return total
+    except Exception as e:
+        print(f"Erro ao buscar empresa: {e}")
+        return None
+
+def pegar_data_abertura(conn, empresa_id):
+    try:
+        with conn.cursor() as cur:
+            query = "SELECT data_abertura FROM empresas WHERE id = %s"
+            cur.execute(query, (empresa_id,))
+            resultado = cur.fetchone()
+            return resultado[0]
     except Exception as e:
         print(f"Erro ao buscar empresa: {e}")
         return None

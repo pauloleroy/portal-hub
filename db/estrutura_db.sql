@@ -55,3 +55,20 @@ CREATE TABLE notas (
     created_at TIMESTAMP DEFAULT now(),
     updated_at TIMESTAMP DEFAULT now()
 );
+
+CREATE TABLE simples_apuracoes (
+    id SERIAL PRIMARY KEY,
+    empresa_id INT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    competencia DATE NOT NULL,  -- dia 1 do mês ref (ex: 2025-09-01)
+    faturamento_mensal NUMERIC(14,2),
+    anexo VARCHAR(20) NOT NULL,  -- "Anexo III", "Anexo V", etc.
+    rbt12 NUMERIC(14,2),
+    aliquota_efetiva NUMERIC(12,8), 
+    impostos JSONB,
+    retencoes NUMERIC(12,2),
+    valor_estimado_guia NUMERIC(12,2),
+    valor_guia_oficial NUMERIC(12,2),
+    diferenca NUMERIC(10,2),
+    data_calculo TIMESTAMP DEFAULT now(),
+    UNIQUE (empresa_id, competencia)
+);

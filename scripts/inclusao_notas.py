@@ -54,7 +54,7 @@ if __name__ == "__main__":
                     empresa_id = conexao_db.procurar_empresa_id(conn, cnpj_prestador)
                     if empresa_id:
                         nota['empresa_id'] = empresa_id
-                        conexao_db.inserir_dict(conn, "notas", nota)
+                        conexao_db.inserir_nota(conn, "notas", nota)
                         print(f"✅ Nota {nota.get('chave')} inserida para empresa ID {empresa_id}")
                     else:
                         print(f"❌ Empresa com CNPJ {cnpj_prestador} não cadastrada. Nota {nota.get('chave')} ignorada.")

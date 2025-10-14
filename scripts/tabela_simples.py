@@ -1,5 +1,5 @@
 TABELAS_SIMPLES_ANEXOS = {
-    "I": [  # Anexo I
+    "Anexo I": [  # Anexo I
         {
             "faixa_min": 0.00,
             "faixa_max": 180000.00,
@@ -98,7 +98,7 @@ TABELAS_SIMPLES_ANEXOS = {
         },
     ],
 
-    "II": [  # Anexo II
+    "Anexo II": [  # Anexo II
         {
             "faixa_min": 0.00,
             "faixa_max": 180000.00,
@@ -197,7 +197,7 @@ TABELAS_SIMPLES_ANEXOS = {
         },
     ],
 
-    "III": [  # Anexo III
+    "Anexo III": [  # Anexo III
         {
             "faixa_min": 0.00,
             "faixa_max": 180000.00,
@@ -296,7 +296,7 @@ TABELAS_SIMPLES_ANEXOS = {
         },
     ],
 
-    "IV": [  # Anexo IV
+    "Anexo IV": [  # Anexo IV
         {
             "faixa_min": 0.00,
             "faixa_max": 180000.00,
@@ -395,7 +395,7 @@ TABELAS_SIMPLES_ANEXOS = {
         },
     ],
 
-    "V": [  # Anexo V
+    "Anexo V": [  # Anexo V
         {
             "faixa_min": 0.00,
             "faixa_max": 180000.00,

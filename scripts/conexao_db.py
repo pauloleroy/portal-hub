@@ -11,6 +11,7 @@ def _normalize_cnpj(cnpj: str) -> str | None:
 
 
 def procurar_empresa_id(conn, cnpj):
+    cnpj = _normalize_cnpj(cnpj)
     try:
         with conn.cursor() as cur:  
             query = "SELECT id FROM empresas WHERE cnpj = %s" 
@@ -81,7 +82,26 @@ def pegar_data_abertura(conn, empresa_id):
         print(f"Erro ao buscar dados: {e}")
         return None
 
-def inserir_dict (conn, tabela, dados):
+def inserir_aliq(conn, dados):
+    colunas = list(dados.keys())
+    valores = list(dados.values())
+
+    colunas_str = ", ".join(colunas)
+    placeholders = ", ".join(["%s"] * len(valores))
+
+    try:
+        with conn.cursor() as cur:
+            query = f"""
+            INSERT INTO simples_apuracoes ({colunas_str})
+            VALUES ({placeholders});
+            """
+            cur.execute(query, valores)
+            conn.commit()
+    
+    except Exception as e:
+        print(f"Erro ao buscar dados: {e}")
+
+def inserir_nota(conn, tabela, dados):
     colunas = list(dados.keys())
     valores = list(dados.values())
 

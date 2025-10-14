@@ -101,6 +101,37 @@ def inserir_aliq(conn, dados):
     except Exception as e:
         print(f"Erro ao buscar dados: {e}")
 
+
+def inserir_calc_simples(conn, faturamento_mensal, retencoes, valor_estimado_guia, empresa_id, competencia):
+    try:
+        with conn.cursor() as cur:
+            query = """
+                    UPDATE simples_apuracoes
+                    SET faturamento_mensal = %s,
+                        retencoes = %s,
+                        valor_estimado_guia = %s
+                    WHERE empresa_id = %s AND competencia = %s;
+            """
+            cur.execute(query, (faturamento_mensal, retencoes, valor_estimado_guia, empresa_id, competencia))
+            conn.commit()
+    
+    except Exception as e:
+        print(f"Erro ao buscar dados: {e}")
+
+def pegar_aliquota_efetiva(conn, empresa_id, mes_ref):
+    try:
+        with conn.cursor() as cur:
+            query = """
+                SELECT aliquota_efetiva 
+                FROM simples_apuracoes
+                WHERE empresa_id = %s AND competencia = %s;
+            """
+            cur.execute(query, (empresa_id, mes_ref))
+            resultado = cur.fetchone()
+            return resultado[0]
+    except Exception as e:
+        print(f"Erro ao buscar dados: {e}")
+
 def inserir_nota(conn, tabela, dados):
     colunas = list(dados.keys())
     valores = list(dados.values())

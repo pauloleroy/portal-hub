@@ -9,6 +9,7 @@ import calendar
 from tabela_simples import TABELAS_SIMPLES_ANEXOS
 from decimal import Decimal
 import json
+from typing import Optional
 
 load_dotenv()
 
@@ -70,20 +71,36 @@ def enviar_aliq(conn, empresa_id, competencia, rbt12, anexo, aliquota_efetiva, i
     }
     conexao_db.inserir_aliq(conn, dados)
 
+def calcular_guia(aliquota_efetiva, faturamento_mensal, retencao: Optional[Decimal] = None) -> Decimal:
+    valor_imposto = faturamento_mensal * aliquota_efetiva
+    valor_retencao = retencao or Decimal('0')
+    return valor_imposto - valor_retencao
+
 
 CNPJ = "37.851.556/0001-00"
-MES_REF = date(2025, 8, 1)
+MES_REF = date(2025, 10, 1)
 ANEXO = 'Anexo III'
 
 if __name__ == "__main__":
     try:
         conn = psycopg2.connect(**DB_CONFIG)
         empresa_id = conexao_db.procurar_empresa_id(conn ,CNPJ)
-        rbt12 = calcular_rbt12(conn, empresa_id, MES_REF)
-        faixa = definir_faixa_simples(ANEXO, rbt12)
-        impostos, aliquota_efetiva = calcular_aliq(faixa, rbt12)
-        print(calcular_iss_retido(conn, empresa_id, date(2025, 8, 1)))
-        enviar_aliq(conn, empresa_id, MES_REF, rbt12, ANEXO, aliquota_efetiva, impostos)
+
+        ## SEQUENCIA PARA APURAR ALIQ
+        # rbt12 = calcular_rbt12(conn, empresa_id, MES_REF)
+        # faixa = definir_faixa_simples(ANEXO, rbt12)
+        # impostos, aliquota_efetiva = calcular_aliq(faixa, rbt12)
+        # enviar_aliq(conn, empresa_id, MES_REF, rbt12, ANEXO, aliquota_efetiva, impostos)
+
+        # SEQUENCIA PARA CALCULAR GUIA
+        aliquota_efetiva = conexao_db.pegar_aliquota_efetiva(conn, empresa_id, MES_REF)
+        iss_retido = calcular_iss_retido(conn, empresa_id, MES_REF)
+        data_inicial = MES_REF
+        ultimo_dia = calendar.monthrange(MES_REF.year, MES_REF.month)[1]
+        data_final = data_inicial.replace(day=ultimo_dia)
+        faturamento_mensal = conexao_db.somar_notas_periodo(conn, empresa_id, data_inicial, data_final)
+        valor_estimado_guia = calcular_guia(aliquota_efetiva, faturamento_mensal, iss_retido)
+        conexao_db.inserir_calc_simples(conn, faturamento_mensal, iss_retido, valor_estimado_guia, empresa_id, MES_REF)
     except Exception as e:
         print(f"Erro na conexão: {e}")
     finally:

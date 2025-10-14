@@ -92,15 +92,16 @@ if __name__ == "__main__":
         # impostos, aliquota_efetiva = calcular_aliq(faixa, rbt12)
         # enviar_aliq(conn, empresa_id, MES_REF, rbt12, ANEXO, aliquota_efetiva, impostos)
 
-        # SEQUENCIA PARA CALCULAR GUIA
-        aliquota_efetiva = conexao_db.pegar_aliquota_efetiva(conn, empresa_id, MES_REF)
-        iss_retido = calcular_iss_retido(conn, empresa_id, MES_REF)
-        data_inicial = MES_REF
-        ultimo_dia = calendar.monthrange(MES_REF.year, MES_REF.month)[1]
-        data_final = data_inicial.replace(day=ultimo_dia)
-        faturamento_mensal = conexao_db.somar_notas_periodo(conn, empresa_id, data_inicial, data_final)
-        valor_estimado_guia = calcular_guia(aliquota_efetiva, faturamento_mensal, iss_retido)
-        conexao_db.inserir_calc_simples(conn, faturamento_mensal, iss_retido, valor_estimado_guia, empresa_id, MES_REF)
+        # # SEQUENCIA PARA CALCULAR GUIA
+        # aliquota_efetiva = conexao_db.pegar_aliquota_efetiva(conn, empresa_id, MES_REF)
+        # iss_retido = calcular_iss_retido(conn, empresa_id, MES_REF)
+        # data_inicial = MES_REF
+        # ultimo_dia = calendar.monthrange(MES_REF.year, MES_REF.month)[1]
+        # data_final = data_inicial.replace(day=ultimo_dia)
+        # faturamento_mensal = conexao_db.somar_notas_periodo(conn, empresa_id, data_inicial, data_final)
+        # valor_estimado_guia = calcular_guia(aliquota_efetiva, faturamento_mensal, iss_retido)
+        # conexao_db.inserir_calc_simples(conn, faturamento_mensal, iss_retido, valor_estimado_guia, empresa_id, MES_REF)
+
     except Exception as e:
         print(f"Erro na conexão: {e}")
     finally:

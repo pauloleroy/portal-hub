@@ -1,7 +1,34 @@
 #conexao_db.py
 import psycopg2
 import re
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
+DB_CONFIG = {
+        "host": os.getenv("DB_HOST"),
+        "port": os.getenv("DB_PORT"),
+        "dbname": os.getenv("DB_NAME"),
+        "user": os.getenv("DB_USER"),
+        "password": os.getenv("DB_PASS"),
+    }
+
+def with_db(func):
+    """
+    Decorator que cria a conexão com o DB, passa para a função e fecha automaticamente.
+    """
+    def wrapper(*args, **kwargs):
+        conn = None
+        try:
+            conn = psycopg2.connect(**DB_CONFIG)
+            return func(conn, *args, **kwargs)  # passa a conexão automaticamente
+        except Exception as e:
+            print(f"❌ Erro na operação do DB: {e}")
+            return None
+        finally:
+            if conn:
+                conn.close()
+    return wrapper
 
 def _normalize_cnpj(cnpj: str) -> str | None:
     if not cnpj:
@@ -9,7 +36,7 @@ def _normalize_cnpj(cnpj: str) -> str | None:
     digits = re.sub(r"\D", "", cnpj)
     return digits if digits else None
 
-
+@with_db
 def procurar_empresa_id(conn, cnpj):
     cnpj = _normalize_cnpj(cnpj)
     try:
@@ -21,7 +48,8 @@ def procurar_empresa_id(conn, cnpj):
     except Exception as e:
         print(f"Erro ao buscar empresa: {e}")
         return None
-
+    
+@with_db
 def pegar_empresas(conn):
     try:
         with conn.cursor() as cur:  
@@ -33,6 +61,7 @@ def pegar_empresas(conn):
         print(f"Erro ao buscar empresa: {e}")
         return None
 
+@with_db
 def somar_notas_periodo (conn, empresa_id, data_inicial, data_final):
     try:
         with conn.cursor() as cur:
@@ -65,6 +94,7 @@ def somar_notas_periodo (conn, empresa_id, data_inicial, data_final):
         print(f"Erro ao buscar dados: {e}")
         return None
 
+@with_db
 def calcular_iss_periodo(conn, empresa_id, data_inicial, data_final):
     try:
         with conn.cursor() as cur:
@@ -82,6 +112,7 @@ def calcular_iss_periodo(conn, empresa_id, data_inicial, data_final):
         print(f"Erro ao buscar dados: {e}")
         return None
 
+@with_db
 def pegar_data_abertura(conn, empresa_id):
     try:
         with conn.cursor() as cur:
@@ -93,6 +124,7 @@ def pegar_data_abertura(conn, empresa_id):
         print(f"Erro ao buscar dados: {e}")
         return None
 
+@with_db
 def inserir_aliq(conn, dados):
     colunas = list(dados.keys())
     valores = list(dados.values())
@@ -112,7 +144,7 @@ def inserir_aliq(conn, dados):
     except Exception as e:
         print(f"Erro ao buscar dados: {e}")
 
-
+@with_db
 def inserir_calc_simples(conn, faturamento_mensal, retencoes, valor_estimado_guia, empresa_id, competencia):
     try:
         with conn.cursor() as cur:
@@ -129,6 +161,7 @@ def inserir_calc_simples(conn, faturamento_mensal, retencoes, valor_estimado_gui
     except Exception as e:
         print(f"Erro ao buscar dados: {e}")
 
+@with_db
 def pegar_aliquota_efetiva(conn, empresa_id, mes_ref):
     try:
         with conn.cursor() as cur:
@@ -143,6 +176,7 @@ def pegar_aliquota_efetiva(conn, empresa_id, mes_ref):
     except Exception as e:
         print(f"Erro ao buscar dados: {e}")
 
+@with_db
 def inserir_nota(conn, tabela, dados):
     colunas = list(dados.keys())
     valores = list(dados.values())

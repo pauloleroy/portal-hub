@@ -177,6 +177,27 @@ def pegar_aliquota_efetiva(conn, empresa_id, mes_ref):
         print(f"Erro ao buscar dados: {e}")
 
 @with_db
+def cadastrar_empresa(conn, dados):
+    colunas = list(dados.keys())
+    valores = list(dados.values())
+
+    colunas_str = ", ".join(colunas)
+    placeholders = ", ".join(["%s"] * len(valores))
+
+    try:
+        with conn.cursor() as cur:
+            query = f"""
+            INSERT INTO empresas ({colunas_str})
+            VALUES ({placeholders});
+            """
+            cur.execute(query, valores)
+            conn.commit()
+        return None
+    except Exception as e:
+        print(f"Erro ao buscar dados: {e}")
+        return str(e)
+
+@with_db
 def inserir_nota(conn, tabela, dados):
     colunas = list(dados.keys())
     valores = list(dados.values())

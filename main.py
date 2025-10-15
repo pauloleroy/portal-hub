@@ -5,9 +5,7 @@ from scripts import consultar_cnpj
 from pathlib import Path
 import xml.etree.ElementTree as ET
 from datetime import datetime
-
-
-
+import time
 
 st.set_page_config(page_title="Portal HUB")
 st.title('Portal HUB')
@@ -81,13 +79,17 @@ def cadastros():
                 form_values['is_matriz'] = True
             else:
                 form_values['is_matriz'] = False
+        else:
+            st.error('CNPJ inválido')
     form_values['razao_social'] = st.text_input('Razão Social', value=form_values['razao_social'])
     form_values['email'] = st.text_input('Email', value=form_values['email'])
     form_values['telefone'] = st.text_input('Telefone', value=form_values['telefone'])
-    form_values['situacao_cadastral'] = st.text_input('Situação cadastral', value=form_values['situacao_cadastral'])
-    form_values['data_abertura'] = st.date_input('Data de abertura', value=form_values['data_abertura'], max_value=datetime.now(), min_value=datetime(1980, 1, 1))
+    col_sit, col_data = st.columns([1,1])
+    form_values['situacao_cadastral'] = col_sit.text_input('Situação cadastral', value=form_values['situacao_cadastral'])
+    form_values['data_abertura'] = col_data.date_input('Data de abertura', value=form_values['data_abertura'], max_value=datetime.now(), min_value=datetime(1980, 1, 1))
     # Radio de regime tributário
-    form_values['regime_tributario'] = st.radio(
+    col_regime, col_det = st.columns([1,1])
+    form_values['regime_tributario'] = col_regime.radio(
         'Regime Tributário', 
         opcoes_regime,
         index=opcoes_regime.index(form_values['regime_tributario']) if form_values['regime_tributario'] else 0
@@ -95,13 +97,13 @@ def cadastros():
 
     # Selectbox dinâmico de acordo com o regime
     if form_values['regime_tributario'] == 'simples':
-        form_values['detalhes_tributarios'] = st.selectbox(
+        form_values['detalhes_tributarios'] = col_det.selectbox(
             'Anexo',
             options=['Anexo I', 'Anexo II', 'Anexo III', 'Anexo IV', 'Anexo V'],
             index=0
         )
     elif form_values['regime_tributario'] == 'lucro_presumido':
-        form_values['detalhes_tributarios'] = st.selectbox(
+        form_values['detalhes_tributarios'] = col_det.selectbox(
             'Percentual Lucro Presumido',
             options=['8%', '32%'],
             index=0
@@ -119,7 +121,6 @@ def cadastros():
             st.write("ID da Matriz:", form_values['matriz_id'])
         else:
             st.write("ID da Matriz: NÃO ENCONTRADO")
-    st.write(st.session_state.form_values)
 
     if st.button("Cadastrar Empresa"):
         erros = []
@@ -141,7 +142,28 @@ def cadastros():
             for e in erros:
                 st.error(e)
         else:
-            st.success("Empresas Cadastrada com Sucesso")
+            retorno_conexao = conexao_db.cadastrar_empresa(dados=form_values)
+            if retorno_conexao is None:
+                st.success("Empresas Cadastrada com Sucesso")
+                
+                # Aguarda 2 segundos antes de limpar
+                time.sleep(2)
+
+                st.session_state.form_values = {
+                'cnpj': None,
+                'razao_social': None,
+                'data_abertura': None,
+                'regime_tributario': None,
+                'detalhes_tributarios': None,
+                'email': None,
+                'telefone': None,
+                'situacao_cadastral': None,
+                'is_matriz': True,
+                'matriz_id': None
+            }
+                st.rerun()
+            else:
+                st.error(retorno_conexao)
 notas()
 st.divider()
 cadastros()

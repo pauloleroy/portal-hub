@@ -22,6 +22,17 @@ def procurar_empresa_id(conn, cnpj):
         print(f"Erro ao buscar empresa: {e}")
         return None
 
+def pegar_empresas(conn):
+    try:
+        with conn.cursor() as cur:  
+            query = "SELECT id, razao_social, cnpj  FROM empresas" 
+            cur.execute(query)
+            empresas = [{"id": r[0], "nome": r[1], "cnpj": r[2]} for r in cur.fetchall()]
+            return empresas if empresas else None
+    except Exception as e:
+        print(f"Erro ao buscar empresa: {e}")
+        return None
+
 def somar_notas_periodo (conn, empresa_id, data_inicial, data_final):
     try:
         with conn.cursor() as cur:

@@ -7,18 +7,16 @@ from scripts.identificacao_socios import definir_socio
 from datetime import date
 from scripts import conexao_db
 
-
-#INSERIR NOTAS
-def inserir_notas(conn, conteudo):
+def tratar_notas(conteudo):
     root = ET.fromstring(conteudo)
     nota = extrair_dados_pbh(root)
     # Buscar empresa_id dinamicamente
     cnpj_prestador = nota.get('prestador_doc')
     if cnpj_prestador:
-        empresa_id = conexao_db.procurar_empresa_id(conn, cnpj_prestador)
+        empresa_id = conexao_db.procurar_empresa_id(cnpj=cnpj_prestador)
         if empresa_id:
             nota['empresa_id'] = empresa_id
-            conexao_db.inserir_nota(conn, "notas", nota)
+            conexao_db.inserir_nota(tabela="notas", dados=nota)
             print(f"✅ Nota {nota.get('chave')} inserida para empresa ID {empresa_id}")
         else:
             print(f"❌ Empresa com CNPJ {cnpj_prestador} não cadastrada. Nota {nota.get('chave')} ignorada.")

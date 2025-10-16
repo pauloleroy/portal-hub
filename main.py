@@ -3,7 +3,6 @@ from scripts import conexao_db
 from scripts import funcoes_notas
 from scripts import consultar_cnpj
 from pathlib import Path
-import xml.etree.ElementTree as ET
 from datetime import datetime
 import time
 
@@ -15,11 +14,6 @@ tab1, tab2, tab3 = st.tabs(["Notas", "Cadastrar Empresa", "Cadastrar Sócio"])
 
 @st.fragment()
 def notas():
-
-    if st.button('Pegar abertura'):
-        data_abertura = conexao_db.pegar_data_abertura(empresa_id=1)
-        st.write('Data abertura:', data_abertura)
-
     arquivos = st.file_uploader(
         "Selecione arquivos XML",
         type="xml",
@@ -29,25 +23,8 @@ def notas():
     if st.button("Processar Notas") and arquivos:
         for arquivo in arquivos:
             conteudo = arquivo.read()
-            funcoes_notas.inserir_notas(conteudo=conteudo)
+            funcoes_notas.tratar_notas(conteudo=conteudo)
     
-    empresas = conexao_db.pegar_empresas()
-    opcoes = {f"{e['nome']} ({e['cnpj']})": e["id"] for e in empresas}
-
-    escolha = st.selectbox(
-        "Selecione a empresa:",
-        options=list(opcoes.keys()),
-        index=None,
-        placeholder="Digite para buscar..."
-    )
-
-    if st.button("Procurar empresa"):
-        if escolha:
-            empresa_id = opcoes[escolha]
-            st.session_state["empresa_id"] = empresa_id
-            st.success(f"Empresa selecionada: {escolha}")
-        else:
-            st.warning("Selecione uma empresa antes de clicar no botão")    
 
 @st.fragment()
 def cadastro_empresa():
@@ -144,7 +121,7 @@ def cadastro_empresa():
             for e in erros:
                 st.error(e)
         else:
-            retorno_conexao = conexao_db.cadastrar_empresa(dados=form_values)
+            retorno_conexao = conexao_db.cadastrar_empresa_socio(tabela='empresas',dados=form_values)
             if retorno_conexao is None:
                 st.success("Empresas Cadastrada com Sucesso")
                 
@@ -181,14 +158,22 @@ def cadastro_socio():
         }   
     st.subheader("Cadastrar Sócio")
     form_socio = st.session_state.form_socio
+    lista_empresas = conexao_db.pegar_empresas()
+    opcoes = {f"{e['nome']} ({e['cnpj']})": e["id"] for e in lista_empresas}
 
-    cnpj_empresa = st.text_input('CNPJ', key='cnpj_socio')
-    if st.button('Procurar',key='procurar_empresa_socio'):
-        form_socio['empresa_id'] = conexao_db.procurar_empresa_id(cnpj=cnpj_empresa)
-        if form_socio['empresa_id'] is not None:
-            st.write("ID da Matriz:", form_socio['empresa_id'])
-        else:
-            st.write("ID da Matriz: NÃO ENCONTRADO")
+    if 'selectbox_index' not in st.session_state:
+        st.session_state.selectbox_index = None
+    escolha = st.selectbox(
+        "Selecione a empresa:",
+        options=list(opcoes.keys()),
+        index=st.session_state.selectbox_index,
+        placeholder="Digite para buscar...",
+        key='empresas_socios'
+    )
+    if escolha is not None and escolha in opcoes: 
+        form_socio['empresa_id'] = opcoes[escolha]
+        st.session_state.selectbox_index = list(opcoes.keys()).index(escolha)
+
     col_nome, col_cpf = st.columns([3,1])
     form_socio['nome'] = col_nome.text_input('Nome', value=form_socio['nome'], key='nome_socio')
     form_socio['cpf'] = col_cpf.text_input('CPF', value=form_socio['cpf'], key='cpf_socio')
@@ -198,7 +183,7 @@ def cadastro_socio():
     col_id, col_percentual = st.columns([1,1])
     form_socio['identificador_prof'] = col_id.text_input('Identificador', value=form_socio['identificador_prof'], placeholder='ex. CRM, CRO, CREA, CPF', key = 'identificador_socio')
     form_socio['percentual_participacao'] = col_percentual.number_input('Percentual de participação', value=form_socio['percentual_participacao'], min_value=0, max_value=100, step=1, key='pct_participacao')
-    if st.button('Cadastar Sócio'):
+    if st.button('Cadastar Sócio') :
         erros = []
         if not form_socio['empresa_id']:
             erros.append('Empresa é obrigatório')
@@ -208,22 +193,24 @@ def cadastro_socio():
             for e in erros:
                 st.error(e)
         else:
-            st.success("Sócio Cadastrado com Sucesso")
+            retorno_conexao = conexao_db.cadastrar_empresa_socio(tabela='socios',dados=form_socio)
+            if retorno_conexao is None:
+                st.success("Sócio Cadastrado com Sucesso")
 
-            time.sleep(2)
+                time.sleep(2)
 
-            st.session_state.form_socio = {
-            'empresa_id' : None,
-            'nome' : None,
-            'cpf' : None,
-            'identificador_prof' : None,
-            'email' : None,
-            'telefone' : None,
-            'percentual_participacao' : None
-        }
-            
-            st.rerun()
-    st.write(form_socio)
+                st.session_state.form_socio = {
+                'empresa_id' : None,
+                'nome' : None,
+                'cpf' : None,
+                'identificador_prof' : None,
+                'email' : None,
+                'telefone' : None,
+                'percentual_participacao' : None
+            }
+                st.rerun()
+            else:
+                st.error(retorno_conexao)
 
 
 with tab1:

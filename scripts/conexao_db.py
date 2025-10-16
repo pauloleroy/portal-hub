@@ -53,7 +53,7 @@ def procurar_empresa_id(conn, cnpj):
 def pegar_empresas(conn):
     try:
         with conn.cursor() as cur:  
-            query = "SELECT id, razao_social, cnpj  FROM empresas" 
+            query = "SELECT id, razao_social, cnpj  FROM empresas ORDER BY razao_social ASC" 
             cur.execute(query)
             empresas = [{"id": r[0], "nome": r[1], "cnpj": r[2]} for r in cur.fetchall()]
             return empresas if empresas else None
@@ -177,7 +177,7 @@ def pegar_aliquota_efetiva(conn, empresa_id, mes_ref):
         print(f"Erro ao buscar dados: {e}")
 
 @with_db
-def cadastrar_empresa(conn, dados):
+def cadastrar_empresa_socio(conn, tabela, dados):
     colunas = list(dados.keys())
     valores = list(dados.values())
 
@@ -187,7 +187,7 @@ def cadastrar_empresa(conn, dados):
     try:
         with conn.cursor() as cur:
             query = f"""
-            INSERT INTO empresas ({colunas_str})
+            INSERT INTO {tabela} ({colunas_str})
             VALUES ({placeholders});
             """
             cur.execute(query, valores)
@@ -218,5 +218,4 @@ def inserir_nota(conn, tabela, dados):
     except Exception as e:
         conn.rollback()
         print(f"❌ Erro ao inserir nota {dados.get('chave')}: {e}")
-
 

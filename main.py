@@ -10,6 +10,8 @@ import time
 st.set_page_config(page_title="Portal HUB")
 st.title('Portal HUB')
 
+tab1, tab2, tab3 = st.tabs(["Notas", "Cadastrar Empresa", "Cadastrar Sócio"])
+
 
 @st.fragment()
 def notas():
@@ -48,7 +50,7 @@ def notas():
             st.warning("Selecione uma empresa antes de clicar no botão")    
 
 @st.fragment()
-def cadastros():
+def cadastro_empresa():
     if 'form_values' not in st.session_state:
         st.session_state.form_values = {
             'cnpj': None,
@@ -66,7 +68,7 @@ def cadastros():
     opcoes_regime = ['simples', 'lucro_presumido', 'lucro_real']
     opcoes_matriz = [True, False]
     
-    st.header('Cadastrar Empresa')
+    st.subheader('Cadastrar Empresa')
     form_values['cnpj'] = st.text_input('CNPJ', value=form_values['cnpj'])
     if st.button('Buscar CNPJ'):
         dados = consultar_cnpj.consultar_dados_cnpj(form_values['cnpj'])
@@ -164,6 +166,69 @@ def cadastros():
                 st.rerun()
             else:
                 st.error(retorno_conexao)
-notas()
-st.divider()
-cadastros()
+
+@st.fragment()
+def cadastro_socio():
+    if 'form_socio' not in st.session_state:
+        st.session_state.form_socio = {
+            'empresa_id' : None,
+            'nome' : None,
+            'cpf' : None,
+            'identificador_prof' : None,
+            'email' : None,
+            'telefone' : None,
+            'percentual_participacao' : None
+        }   
+    st.subheader("Cadastrar Sócio")
+    form_socio = st.session_state.form_socio
+
+    cnpj_empresa = st.text_input('CNPJ', key='cnpj_socio')
+    if st.button('Procurar',key='procurar_empresa_socio'):
+        form_socio['empresa_id'] = conexao_db.procurar_empresa_id(cnpj=cnpj_empresa)
+        if form_socio['empresa_id'] is not None:
+            st.write("ID da Matriz:", form_socio['empresa_id'])
+        else:
+            st.write("ID da Matriz: NÃO ENCONTRADO")
+    col_nome, col_cpf = st.columns([3,1])
+    form_socio['nome'] = col_nome.text_input('Nome', value=form_socio['nome'], key='nome_socio')
+    form_socio['cpf'] = col_cpf.text_input('CPF', value=form_socio['cpf'], key='cpf_socio')
+    col_email, col_tefone = st.columns([1,1])
+    form_socio['email'] = col_email.text_input('Email', value=form_socio['email'], key='email_socio')
+    form_socio['telefone'] = col_tefone.text_input('Telefone', value=form_socio['telefone'], key='telefone_socio')
+    col_id, col_percentual = st.columns([1,1])
+    form_socio['identificador_prof'] = col_id.text_input('Identificador', value=form_socio['identificador_prof'], placeholder='ex. CRM, CRO, CREA, CPF', key = 'identificador_socio')
+    form_socio['percentual_participacao'] = col_percentual.number_input('Percentual de participação', value=form_socio['percentual_participacao'], min_value=0, max_value=100, step=1, key='pct_participacao')
+    if st.button('Cadastar Sócio'):
+        erros = []
+        if not form_socio['empresa_id']:
+            erros.append('Empresa é obrigatório')
+        if not form_socio['nome']:
+            erros.append('Nome é obrigatório')
+        if erros:
+            for e in erros:
+                st.error(e)
+        else:
+            st.success("Sócio Cadastrado com Sucesso")
+
+            time.sleep(2)
+
+            st.session_state.form_socio = {
+            'empresa_id' : None,
+            'nome' : None,
+            'cpf' : None,
+            'identificador_prof' : None,
+            'email' : None,
+            'telefone' : None,
+            'percentual_participacao' : None
+        }
+            
+            st.rerun()
+    st.write(form_socio)
+
+
+with tab1:
+    notas()
+with tab2:
+    cadastro_empresa()
+with tab3:
+    cadastro_socio()

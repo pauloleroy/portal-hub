@@ -1,7 +1,9 @@
 #funcoes_notas.py
 import xml.etree.ElementTree as ET
 from .notas_parsers import extrair_dados_pbh, extrair_dados_nfce, extrair_dados_nfe
-from .conexao_db import DatabaseService
+from .repositories.empresas_repo import EmpresaRepository 
+from .repositories.notas_repo import NotasRepository 
+
 
 class Nota:
     def __init__(self, caminho: str):
@@ -90,15 +92,36 @@ class Nota:
     def _checar_cnpj(self, cnpj : str):
         return cnpj == self.dados.get('prestador_doc') or cnpj == self.dados.get('tomador_doc')
     
-    def enviar_nota_db(self, cnpj: str, db_service: DatabaseService):
-        if self._checar_cnpj(cnpj):
-            empresa_id = db_service.procurar_empresa_id(cnpj=cnpj)
-            if empresa_id:
-                dados_para_db = self.dados.copy() # Use uma cópia dos dados
-                dados_para_db['empresa_id'] = empresa_id
-                db_service.inserir_nota(tabela="notas", dados=dados_para_db)
-                print(f"✅ Nota {self.dados.get('chave')} inserida para empresa ID {empresa_id}")
-            else:
-                print(f"❌ Empresa com CNPJ {cnpj} não cadastrada. Nota {self.dados.get('chave')} ignorada.")
-        else:
-            print(f"❌ Nota {self.dados.get('numero')} não pertence a essa empresa.")
+    def enviar_nota_db(self, 
+                      cnpj: str, 
+                      empresa_repo: EmpresaRepository, 
+                      notas_repo: NotasRepository) -> str | None:
+        
+        if not self._checar_cnpj(cnpj):
+            return f"Nota {self.dados.get('numero')} não pertence ao CNPJ {cnpj}."
+        
+        empresa_id_resultado = empresa_repo.procurar_empresa_id(cnpj=cnpj)
+        
+        if isinstance(empresa_id_resultado, str):
+            # Houve um ERRO de banco de dados na consulta (ex: erro de conexão/sintaxe)
+            print(f"❌ Erro ao buscar empresa: {empresa_id_resultado}")
+            return f"Falha no BD ao buscar CNPJ: {empresa_id_resultado}"
+        
+        empresa_id = empresa_id_resultado
+        
+        if not empresa_id:
+            print(f"❌ Empresa com CNPJ {cnpj} não cadastrada. Nota {self.dados.get('chave')} ignorada.")
+            return f"Empresa {cnpj} não cadastrada. Não é possível inserir a nota."
+
+        dados_para_db = self.dados.copy() 
+        dados_para_db['empresa_id'] = empresa_id
+        
+        retorno_insercao = notas_repo.inserir_nota(dados=dados_para_db) 
+        
+        if isinstance(retorno_insercao, str):
+            # Houve um ERRO de BD durante o INSERT/UPDATE
+            print(f"❌ Erro ao inserir nota: {retorno_insercao}")
+            return f"Falha ao inserir nota no BD: {retorno_insercao}"
+            
+        print(f"✅ Nota {self.dados.get('chave')} inserida/atualizada para empresa ID {empresa_id}")
+        return None 

@@ -5,12 +5,16 @@ from pathlib import Path
 from datetime import datetime
 import time
 from scripts.repositories.empresas_repo import EmpresaRepository
+from scripts.repositories.notas_repo import NotasRepository
+from scripts.nota import Nota
+
 
 st.set_page_config(page_title="Portal HUB")
 st.title('Portal HUB')
 
 db_service = DatabaseService()
 empresas_repo = EmpresaRepository(db_service)
+notas_repo = NotasRepository(db_service)
 
 tab1, tab2, tab3 = st.tabs(["Notas", "Cadastrar Empresa", "Cadastrar Sócio"])
 
@@ -25,7 +29,9 @@ def notas():
 
     if st.button("Processar Notas") and arquivos:
         for arquivo in arquivos:
-            pass
+            nota = Nota(arquivo)
+            retorno = nota.enviar_nota_db('37851556000101', empresas_repo, notas_repo)
+            print(f'valor retorno: {retorno}')
     
 
 @st.fragment()

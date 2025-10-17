@@ -6,7 +6,7 @@ from datetime import datetime
 from scripts.identificacao_socios import definir_socio
 from datetime import date
 from scripts import conexao_db
-from .notas_parsers import extrair_dados_pbh
+from .notas_parsers import extrair_dados_pbh, extrair_dados_nfce
 
 #MIGRAR FUNCAO PARA CLASSE - TA AQUI COMO EXEMPLO SO
 def tratar_notas(conteudo):
@@ -30,7 +30,6 @@ class Nota:
         self.caminho = caminho
         self.root = self._extrair_root()
         
-        # Inicializa propriedades com None e só preenche se o root existir
         self.xml_texto = None 
         self.namespace = None 
         self.tipo = None
@@ -103,5 +102,7 @@ class Nota:
         
         if self.tipo == 'nfse_pbh':
             return extrair_dados_pbh(self.root, self.namespace, self.xml_texto)
+        elif self.tipo == 'nfce':
+            return extrair_dados_nfce(self.root, self.namespace, self.xml_texto)
         else:
             return {}

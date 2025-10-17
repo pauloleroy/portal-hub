@@ -5,6 +5,10 @@ from datetime import date
 from scripts.identificacao_socios import definir_socio
 import xml.etree.ElementTree as ET
 
+#TO-DO
+#Implementar logica para identificar notas canceladas NFC-e
+
+
 #NFS - Prefeitura BH
 def extrair_dados_pbh(root: ET.Element, namespace: str, xml_texto: str) -> dict:
     ns = {"n": namespace}
@@ -33,8 +37,8 @@ def extrair_dados_pbh(root: ET.Element, namespace: str, xml_texto: str) -> dict:
         outras_info = root.find(".//n:OutrasInformacoes", ns).text
         chave = re.search(r"\d{44}", outras_info)
         chave = chave.group(0) if chave else None
-        discrinacao = root.find(".//n:Discriminacao", ns).text
-        socio_id = definir_socio(discrinacao, prestador_doc)
+        discriminacao = root.find(".//n:Discriminacao", ns).text
+        socio_id = definir_socio(discriminacao, prestador_doc)
         cancelamento = root.find(".//n:NfseCancelamento", ns)
         if cancelamento is not None:
             e_cancelada = True
@@ -60,4 +64,45 @@ def extrair_dados_pbh(root: ET.Element, namespace: str, xml_texto: str) -> dict:
         }
     except Exception as e:
         print(f"ERRO ao parsear NFSe PBH: {e}")
+        return {}
+
+def extrair_dados_nfce(root: ET.Element, namespace: str, xml_texto: str) -> dict:
+    ns = {"n": namespace}
+    try:
+        numero = root.find(".//n:nNF", ns).text
+        valor_total = Decimal(root.find(".//n:vNF", ns).text)
+        data_emissao = root.find(".//n:dhEmi", ns).text
+        data_competencia = root.find(".//n:dhEmi", ns).text
+        data_emissao = datetime.strptime(data_emissao, '%Y-%m-%dT%H:%M:%S%z').date()
+        data_competencia = datetime.strptime(data_competencia, '%Y-%m-%dT%H:%M:%S%z').date()
+        mes_ref = date(data_emissao.year, data_emissao.month, 1)
+        prestador_nome = root.find(".//n:emit/n:xNome",ns).text
+        prestador_doc = root.find(".//n:emit/n:CNPJ", ns).text
+        tomador_nome = root.find(".//n:dest/n:xNome", ns).text
+        tomador_doc = root.find(".//n:dest/n:CPF", ns)
+        if tomador_doc is not None and tomador_doc.text:
+            tomador_doc = tomador_doc.text
+        else:
+            tomador_doc = None
+        chave = root.find(".//n:protNFe/n:infProt/n:chNFe", ns).text
+        cfop = root.find(".//n:CFOP", ns).text # Ta pegando primeiro CFOP
+        e_cancelada = False #ACHAR EXEMPLO CANCELADO PARA IMPLEMENTAR
+        return {
+            'numero' : numero,
+            'tipo' : 'nfce',
+            'valor_total' : valor_total,
+            'data_emissao' : data_emissao,
+            'data_competencia' : data_competencia,
+            'mes_ref' : mes_ref,
+            'prestador_nome' : prestador_nome,
+            'prestador_doc' : prestador_doc,
+            'tomador_nome' : tomador_nome,
+            'tomador_doc' : tomador_doc,
+            'chave' : chave,
+            'cfop' : cfop,
+            'e_cancelada' : e_cancelada,
+            'xml_text' : xml_texto
+        }
+    except Exception as e:
+        print(f"ERRO ao parsear NFCe: {e}")
         return {}

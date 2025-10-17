@@ -1,6 +1,5 @@
 import streamlit as st
 from scripts import conexao_db
-from scripts import funcoes_notas
 from scripts import consultar_cnpj
 from pathlib import Path
 from datetime import datetime
@@ -22,8 +21,7 @@ def notas():
 
     if st.button("Processar Notas") and arquivos:
         for arquivo in arquivos:
-            conteudo = arquivo.read()
-            funcoes_notas.tratar_notas(conteudo=conteudo)
+            pass
     
 
 @st.fragment()

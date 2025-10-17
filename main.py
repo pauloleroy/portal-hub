@@ -1,5 +1,5 @@
 import streamlit as st
-from scripts import conexao_db
+from scripts.conexao_db import DatabaseService
 from scripts import consultar_cnpj
 from pathlib import Path
 from datetime import datetime
@@ -7,6 +7,8 @@ import time
 
 st.set_page_config(page_title="Portal HUB")
 st.title('Portal HUB')
+
+db_service = DatabaseService()
 
 tab1, tab2, tab3 = st.tabs(["Notas", "Cadastrar Empresa", "Cadastrar Sócio"])
 
@@ -26,6 +28,7 @@ def notas():
 
 @st.fragment()
 def cadastro_empresa():
+    global db_service
     if 'form_values' not in st.session_state:
         st.session_state.form_values = {
             'cnpj': None,
@@ -93,7 +96,7 @@ def cadastro_empresa():
     if not form_values['is_matriz']:
         cnpj_matriz = st.text_input('CNPJ Matriz')
         if st.button('Procurar Matriz'):
-            form_values['matriz_id'] = conexao_db.procurar_empresa_id(cnpj=cnpj_matriz)
+            form_values['matriz_id'] = db_service.procurar_empresa_id(cnpj=cnpj_matriz)
         if form_values['matriz_id'] is not None:
             st.write("ID da Matriz:", form_values['matriz_id'])
         else:
@@ -119,7 +122,7 @@ def cadastro_empresa():
             for e in erros:
                 st.error(e)
         else:
-            retorno_conexao = conexao_db.cadastrar_empresa_socio(tabela='empresas',dados=form_values)
+            retorno_conexao = db_service.cadastrar_empresa_socio(tabela='empresas',dados=form_values)
             if retorno_conexao is None:
                 st.success("Empresas Cadastrada com Sucesso")
                 
@@ -144,6 +147,7 @@ def cadastro_empresa():
 
 @st.fragment()
 def cadastro_socio():
+    global db_service
     if 'form_socio' not in st.session_state:
         st.session_state.form_socio = {
             'empresa_id' : None,
@@ -156,7 +160,7 @@ def cadastro_socio():
         }   
     st.subheader("Cadastrar Sócio")
     form_socio = st.session_state.form_socio
-    lista_empresas = conexao_db.pegar_empresas()
+    lista_empresas = db_service.pegar_empresas()
     opcoes = {f"{e['nome']} ({e['cnpj']})": e["id"] for e in lista_empresas}
 
     if 'selectbox_index' not in st.session_state:
@@ -191,7 +195,7 @@ def cadastro_socio():
             for e in erros:
                 st.error(e)
         else:
-            retorno_conexao = conexao_db.cadastrar_empresa_socio(tabela='socios',dados=form_socio)
+            retorno_conexao = db_service.cadastrar_empresa_socio(tabela='socios',dados=form_socio)
             if retorno_conexao is None:
                 st.success("Sócio Cadastrado com Sucesso")
 

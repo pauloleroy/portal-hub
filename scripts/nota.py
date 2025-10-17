@@ -1,29 +1,7 @@
 #funcoes_notas.py
 import xml.etree.ElementTree as ET
-from decimal import Decimal
-import re
-from datetime import datetime
-from scripts.identificacao_socios import definir_socio
-from datetime import date
-from scripts import conexao_db
-from .notas_parsers import extrair_dados_pbh, extrair_dados_nfce
-
-#MIGRAR FUNCAO PARA CLASSE - TA AQUI COMO EXEMPLO SO
-def tratar_notas(conteudo):
-    root = ET.fromstring(conteudo)
-    nota = extrair_dados_pbh(root)
-    # Buscar empresa_id dinamicamente
-    cnpj_prestador = nota.get('prestador_doc')
-    if cnpj_prestador:
-        empresa_id = conexao_db.procurar_empresa_id(cnpj=cnpj_prestador)
-        if empresa_id:
-            nota['empresa_id'] = empresa_id
-            conexao_db.inserir_nota(tabela="notas", dados=nota)
-            print(f"✅ Nota {nota.get('chave')} inserida para empresa ID {empresa_id}")
-        else:
-            print(f"❌ Empresa com CNPJ {cnpj_prestador} não cadastrada. Nota {nota.get('chave')} ignorada.")
-    else:
-        print(f"❌ CNPJ do prestador não encontrado na nota {nota.get('chave')}.")
+from .notas_parsers import extrair_dados_pbh, extrair_dados_nfce, extrair_dados_nfe
+from .conexao_db import DatabaseService
 
 class Nota:
     def __init__(self, caminho: str):
@@ -104,5 +82,23 @@ class Nota:
             return extrair_dados_pbh(self.root, self.namespace, self.xml_texto)
         elif self.tipo == 'nfce':
             return extrair_dados_nfce(self.root, self.namespace, self.xml_texto)
+        elif self.tipo == 'nfe':
+            return extrair_dados_nfe(self.root, self.namespace, self.xml_texto)
         else:
             return {}
+        
+    def _checar_cnpj(self, cnpj : str):
+        return cnpj == self.dados.get('prestador_doc') or cnpj == self.dados.get('tomador_doc')
+    
+    def enviar_nota_db(self, cnpj: str, db_service: DatabaseService):
+        if self._checar_cnpj(cnpj):
+            empresa_id = db_service.procurar_empresa_id(cnpj=cnpj)
+            if empresa_id:
+                dados_para_db = self.dados.copy() # Use uma cópia dos dados
+                dados_para_db['empresa_id'] = empresa_id
+                db_service.inserir_nota(tabela="notas", dados=dados_para_db)
+                print(f"✅ Nota {self.dados.get('chave')} inserida para empresa ID {empresa_id}")
+            else:
+                print(f"❌ Empresa com CNPJ {cnpj} não cadastrada. Nota {self.dados.get('chave')} ignorada.")
+        else:
+            print(f"❌ Nota {self.dados.get('numero')} não pertence a essa empresa.")

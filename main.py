@@ -21,17 +21,65 @@ tab1, tab2, tab3 = st.tabs(["Notas", "Cadastrar Empresa", "Cadastrar Sócio"])
 
 @st.fragment()
 def notas():
-    arquivos = st.file_uploader(
-        "Selecione arquivos XML",
-        type="xml",
-        accept_multiple_files=True
-    )
+    lista_empresas_resultado = empresas_repo.pegar_empresas()
+    if isinstance(lista_empresas_resultado, str):
+        st.error(f"Erro ao carregar empresas do banco de dados: {lista_empresas_resultado}")
+        return
+    lista_empresas = lista_empresas_resultado or []
+    opcoes = {f"{e['nome']} ({e['cnpj']})": e['cnpj'] for e in lista_empresas}
+    if 'selectbox_index' not in st.session_state:
+        st.session_state.selectbox_index = None
+    cnpj = None
+    st.subheader('Importar Notas')
+    with st.form("notas_form", clear_on_submit=True):
+        escolha = st.selectbox(
+            "Selecione a empresa:",
+            options=list(opcoes.keys()),
+            index=st.session_state.selectbox_index,
+            placeholder="Digite para buscar...",
+            key='empresas_notas_form_sb'
+        )
+        if escolha is not None and escolha in opcoes: 
+            cnpj = opcoes[escolha]
+            try:
+                st.session_state.selectbox_index = list(opcoes.keys()).index(escolha)
+            except ValueError:
+                st.session_state.selectbox_index = 0
 
-    if st.button("Processar Notas") and arquivos:
-        for arquivo in arquivos:
-            nota = Nota(arquivo)
-            retorno = nota.enviar_nota_db('37851556000101', empresas_repo, notas_repo)
-            print(f'valor retorno: {retorno}')
+        arquivos = st.file_uploader(
+            "Selecione arquivos XML",
+            type="xml",
+            accept_multiple_files=True,
+            key='arquivos_xml'
+        )
+
+        submitted = st.form_submit_button("Processar Notas")
+    if submitted:
+        erros = []
+        if not cnpj:
+            st.error('Por favor, selecione uma empresa.') 
+            return
+
+        if not arquivos:
+            st.error('Por favor, selecione pelo menos um arquivo XML.')
+            return
+
+        with st.spinner('Processando notas...'):
+            try:
+                for arquivo in arquivos:
+                    nota = Nota(arquivo)
+                    retorno = nota.enviar_nota_db(cnpj , empresas_repo, notas_repo)
+                    if retorno is not None: erros.append(retorno)
+            except Exception as e:
+                erros.append(f"Erro inesperado ao processar arquivo: {str(e)}")
+        if erros:
+            st.warning(f"Processamento concluído com {len(erros)} falhas. Veja os detalhes abaixo:")
+            for e in erros:
+                st.error(e)
+            if len(arquivos) > len(erros):
+                st.success(f"{len(arquivos) - len(erros)} nota(s) processada(s) com sucesso")
+        else:
+            st.success(f'Todas as {len(arquivos)} notas foram processadas com sucesso!') 
     
 
 @st.fragment()

@@ -9,12 +9,14 @@ from decimal import Decimal
 import json
 from typing import Optional
 from .repositories.empresas_repo import EmpresaRepository 
-from .repositories.notas_repo import NotasRepository 
+from .repositories.notas_repo import NotasRepository
+from .repositories.simples_repo import SimplesRepository 
 
 class CalculoSimples:
-    def __init__(self, mes_ref : date, anexo : str, empresa_id: int, empresa_repo: EmpresaRepository, notas_repo: NotasRepository):
+    def __init__(self, mes_ref : date, anexo : str, empresa_id: int, empresa_repo: EmpresaRepository, notas_repo: NotasRepository, simples_repo: SimplesRepository):
         self.empresa_repo = empresa_repo 
         self.notas_repo = notas_repo
+        self.simples_repo = simples_repo
 
         self.mes_ref = mes_ref.replace(day=1)
         ultimo_dia = calendar.monthrange(mes_ref.year, mes_ref.month)[1]
@@ -88,12 +90,12 @@ class CalculoSimples:
             'aliquota_efetiva' : self.aliquota_efetiva,
             'impostos' : dados_impostos
         }
-        retorno = self.notas_repo.inserir_aliq(dados)
+        retorno = self.simples_repo.inserir_aliq(dados)
         return retorno
     
     def calcular_guia(self) -> str | None:
         valor_imposto = self.faturamento_mensal * self.aliquota_efetiva
         valor_retencao = self.retencoes or Decimal('0')
         valor_guia =valor_imposto - valor_retencao
-        retorno = self.notas_repo.inserir_calc_simples(self.faturamento_mensal, valor_retencao, valor_guia, self.empresa_id, self.mes_ref)
+        retorno = self.simples_repo.inserir_calc_simples(self.faturamento_mensal, valor_retencao, valor_guia, self.empresa_id, self.mes_ref)
         return retorno

@@ -30,6 +30,13 @@ class CalculoSimples:
 
     
     def _calcular_rbt_12(self) -> Decimal:
+        verificar_matriz = self.empresa_repo.verfiricar_e_matriz(self.empresa_id)
+        if isinstance(verificar_matriz, str):
+            raise
+        if verificar_matriz is None:
+            raise ValueError(f"Empresa com ID {self.empresa_id} não encontrada no banco de dados.")
+        if not verificar_matriz:
+            raise ValueError(f"O cálculo deve ser iniciado pelo ID da Matriz, não pela filial {self.empresa_id}.")
         data_abertura = self.empresa_repo.pegar_data_abertura(self.empresa_id).replace(day=1)
         if data_abertura > self.mes_ref:
             raise ValueError('Mês de referência anterior à data de abertura da empresa.')
@@ -40,12 +47,20 @@ class CalculoSimples:
         ultimo_dia = calendar.monthrange(mes_anterior_ref.year, mes_anterior_ref.month)[1]
         data_final = mes_anterior_ref.replace(day=ultimo_dia)
         data_inicio_real = max(data_abertura, data_inicial_12m)
+        data_inicio_real_str = data_inicio_real.strftime('%Y-%m-%d')
+        data_final_str = data_final.strftime('%Y-%m-%d')
         if data_abertura > data_inicial_12m:
             total_meses = (mes_anterior_ref.year - data_abertura.year) * 12 + (mes_anterior_ref.month - data_abertura.month) + 1
-            total_periodo = self.notas_repo.somar_notas_periodo(self.empresa_id, data_inicio_real, data_final)
         else:
-            total_periodo = self.notas_repo.somar_notas_periodo(self.empresa_id, data_inicio_real, data_final)
             total_meses = 12
+        total_periodo = self.notas_repo.somar_faturamento_liquido(
+            self.empresa_id, 
+            data_inicio_real_str, # Use a string formatada
+            data_final_str,       # Use a string formatada
+            incluir_grupo=True
+        )    
+        if isinstance(total_periodo, str):
+            raise Exception(f"Erro de DB ao calcular faturamento para RBT12: {total_periodo}")
         rbt12 = total_periodo*12/total_meses
         return rbt12
 
@@ -71,7 +86,14 @@ class CalculoSimples:
         return impostos
     
     def _calcular_faturamento_mensal(self) -> Decimal:
-        faturamento_mensal = self.notas_repo.somar_notas_periodo(self.empresa_id, self.mes_ref, self.mes_ref_final)
+        faturamento_mensal = self.notas_repo.somar_faturamento_liquido(
+            self.empresa_id, 
+            self.mes_ref.strftime('%Y-%m-%d'),
+            self.mes_ref_final.strftime('%Y-%m-%d'),
+            incluir_grupo=True
+        )
+        if isinstance(faturamento_mensal, str):
+            raise Exception(f"Erro de DB ao calcular faturamento mensal: {faturamento_mensal}")
         return faturamento_mensal.quantize(Decimal('0.00'))
 
     def _calcular_retencoes(self) -> Decimal:
@@ -122,6 +144,6 @@ class CalculoSimples:
         aliquota_efetiva = resultado_aliq
         valor_imposto = self.faturamento_mensal * aliquota_efetiva
         valor_retencao = self.retencoes or Decimal('0')
-        valor_guia =valor_imposto - valor_retencao
+        valor_guia = valor_imposto - valor_retencao
         retorno = self.simples_repo.inserir_calc_simples(self.faturamento_mensal, valor_retencao, valor_guia, self.empresa_id, self.mes_ref)
         return retorno

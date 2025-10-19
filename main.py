@@ -100,19 +100,32 @@ def notas():
 
 @st.fragment()
 def apuracao_simples():
+    # Criando seassion stade para radio de subtituir aliq na DB
     if 'recalcular_aliq' not in st.session_state:
         st.session_state.recalcular_aliq = False
-    lista_empresas_resultado = empresas_repo.pegar_empresas()
+
+    # Pegando empresas matriz da db
+    lista_empresas_resultado = empresas_repo.pegar_empresas_matriz()
+
+    # Verifica de se teve êxito na consulta de lista de empresas matriz db 
     if isinstance(lista_empresas_resultado, str):
         st.error(f"Erro ao carregar empresas do banco de dados: {lista_empresas_resultado}")
         return
+    
+    # Caso não haja nenhuma empresa cadastrada gerar lista vazia
     lista_empresas = lista_empresas_resultado or []
+    # Setando valores para popular o select box chave NOME (CNPJ) valor ID
     opcoes = {f"{e['nome']} ({e['cnpj']})": e['id'] for e in lista_empresas}
+
+    # Criando session_state do selectbox de empresas
     if 'selectbox_index' not in st.session_state:
         st.session_state.selectbox_index = None
     empresa_id = None
+
     st.subheader('Dados Simples')
+
     col_empresa, col_data = st.columns([3,1])
+    # selectbox  de Empresas
     escolha = col_empresa.selectbox(
         "Selecione a empresa:",
         options=list(opcoes.keys()),
@@ -120,6 +133,7 @@ def apuracao_simples():
         placeholder="Digite para buscar...",
         key='empresas_simples'
     )
+    # Validação de seleção do selectbox
     if escolha is not None and escolha in opcoes: 
         empresa_id = opcoes[escolha]
         try:
@@ -127,24 +141,32 @@ def apuracao_simples():
         except ValueError:
             st.session_state.selectbox_index = 0
 
+    # Gerando valores para popular selectbox mes referencia
     opcoes_competencia = gerar_opcoes_competencia(meses_para_tras=18)
     
+    # select box mes referencia
     competencia_escolhida_str = col_data.selectbox(
         "Mês de Referência:",
         options=opcoes_competencia,
         index=1, # Default para o mês anterior (mais comum)
         key='mes_referencia_simples'
     )
+    # tratando valores da seleção mes referencia para data 1º dia do mes
     mes, ano = map(int, competencia_escolhida_str.split('/'))
     mes_ref_date = date(ano, mes, 1)
 
+    # Validação se alguma empreesa foi selecionada
     if empresa_id is None:
         return
+    # Gerando dados de 1º e ult dia do mes para chamar funcoes que pedem periodo
     data_inicial = mes_ref_date
     ultimo_dia = calendar.monthrange(mes_ref_date.year, mes_ref_date.month)[1]
     data_final = mes_ref_date.replace(day=ultimo_dia)
 
+    # Pegando da db anexo da empresa selecionada
     anexo = empresas_repo.pegar_anexo(empresa_id)
+    
+    # Validador para verificar se sitacao_fiscal na db está cadastrada corretamente ou não seja do simples
     VALIDADOR_ANEXO = ['Anexo I', 'Anexo II', 'Anexo III', 'Anexo IV', 'Anexo V']
     if anexo not in VALIDADOR_ANEXO:
         st.warning(f'Empresa não se enquadra no simples. Ou detalhe_trib: {anexo} cadastrado no formato errado')
@@ -152,17 +174,22 @@ def apuracao_simples():
     
     col_btn, col_rad, col_empt1, col_btn2 = st.columns(4, gap=None, vertical_alignment='center')
 
+    # Botão para apuração de aliq
     if col_btn.button('Apurar Alíquota'):
+        # Criação da classe CalculoSimples para envio de dados e validação de retorno do commit na DB
         cal_simples = CalculoSimples(mes_ref_date, anexo, empresa_id, empresas_repo, notas_repo, simples_repo)
         retorno_enviar_aliq = cal_simples.enviar_aliq(st.session_state.recalcular_aliq)
         if isinstance(retorno_enviar_aliq, str):
             st.error(retorno_enviar_aliq)
         else:
             st.success('Alíquota Apurada')
+    
+    # Dict de opcoes do radio se é para substituir dados aliq
     opcoes_radio = { 'Não' : False, 'Sim' : True}
     escolha_radio = col_rad.radio('Substituir Aliq', list(opcoes_radio.keys()) , index=0, horizontal=True, key='radio_apuracao')
     st.session_state.recalcular_aliq = opcoes_radio[escolha_radio]
     
+    # Botão para calcular valor estimado simples
     if col_btn2.button('Calcular Guia'):
         cal_simples = CalculoSimples(mes_ref_date, anexo, empresa_id, empresas_repo, notas_repo, simples_repo)
         retorno_calcular_guia = cal_simples.calcular_guia()
@@ -171,24 +198,44 @@ def apuracao_simples():
         else:
             st.success('Guia Calculada')
 
+    # Gerando variaveis de Nome para gerar titulo dos cards
     nome_empresa = [chave for chave, valor in opcoes.items() if valor==empresa_id]
+
+    # Pega dados do simples para um empresa e mes ref
     dados_mes = simples_repo.pegar_dados_mes(empresa_id, mes_ref_date)
-    com_sem_retencao = notas_repo.somar_receitas_por_retencao(empresa_id, data_inicial, data_final)
+
+    # Pega soma de notas com e sem retencao de iss
+    com_sem_retencao = notas_repo.somar_receitas_por_retencao(empresa_id, data_inicial, data_final, incluir_grupo=True)
+
+    # Devem ser depois da consulta pois eles devem carregar para renderizar se tiver um e nao o outro
+    # Valida retorno da db consulda de dados mes
     if isinstance(dados_mes, str):
         st.error(f"Erro no banco de dados ao buscar apuração: {dados_mes}")
         return
+    # Valida retorno se nao hover apuracao para o mes
     if not dados_mes:
         st.warning(f"Nenhum dado de apuração encontrado para {competencia_escolhida_str}. Execute o cálculo primeiro.")
         return
+    # Valida retorno da consulta das notas com e sem retencao
     if isinstance(com_sem_retencao, str):
         st.erro("Erro no banco de dados ao buscar notas na rotina com_sem_retencao")
         return
+    # Titulo cards
     st.text(f"{nome_empresa[0]} - {mes_ref_date.strftime('%m/%Y')} - {dados_mes['anexo']}")
+
+    # Pegar se empresas tem filiais
+    lista_filiais = empresas_repo.pegar_filias(empresa_id)
+    if lista_filiais:
+        st.write(lista_filiais)
+
+    # Pega dados de aliq e iss para verificar se existem
     aliq = dados_mes['aliquota_efetiva']
     iss = dados_mes['impostos']['ISS']
+
+    # Valida se há valores para o mes e gera cards
     if isinstance(aliq, Decimal) and isinstance(iss, Decimal):
         
-        # O quantize deve ser feito após a multiplicação
+        # Conversao de valores para X,XXXXXXX
         aliq_percentual = (aliq * 100).quantize(Decimal('0.000001'))
         iss_percentual = (iss * 100).quantize(Decimal('0.000001'))
         

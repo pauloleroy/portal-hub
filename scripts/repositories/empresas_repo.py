@@ -28,7 +28,40 @@ class EmpresaRepository:
             return None
             
         return [{"id": r[0], "nome": r[1], "cnpj": r[2]} for r in resultados]
+    def verfiricar_e_matriz(self, empresa_id : int) -> bool | str | None:
+        """Verificar se empresa é matriz"""
+        query = "SELECT is_matriz FROM empresas WHERE id=%s;"
+        resultado = self._db._execute_query(query, (empresa_id,), fetch_one= True)
         
+        # Verifica se houve erro de execução (retorna string) ou se está vazio (retorna tupla vazia)
+        if isinstance(resultado, str):
+            return resultado
+        
+        return resultado[0] if resultado else None
+
+
+    def pegar_empresas_matriz(self) -> List[Dict[str, Any]] | None:
+        """Retorna a lista de empresas MATRIZ cadastradas."""
+        query = "SELECT id, razao_social, cnpj FROM empresas WHERE is_matriz = TRUE ORDER BY razao_social ASC" 
+        resultados = self._db._execute_query(query, fetch_one=False)
+        
+        # Verifica se houve erro de execução (retorna string) ou se está vazio (retorna tupla vazia)
+        if isinstance(resultados, str) or resultados is None:
+            return None
+            
+        return [{"id": r[0], "nome": r[1], "cnpj": r[2]} for r in resultados]
+
+    def pegar_filias(self, empresa_id : int) -> List[Dict[str, Any]] | None:
+        """Retorna a lista de empresas FILIAIS de uma matriz cadastrada."""
+        query = "SELECT id, razao_social, cnpj FROM empresas WHERE matriz_id=%s ORDER BY CNPJ ASC" 
+        resultados = self._db._execute_query(query,(empresa_id,), fetch_one=False)
+        
+        # Verifica se houve erro de execução (retorna string) ou se está vazio (retorna tupla vazia)
+        if isinstance(resultados, str) or resultados is None:
+            return None
+            
+        return [{"id": r[0], "nome": r[1], "cnpj": r[2]} for r in resultados]
+
     def pegar_data_abertura(self, empresa_id) -> Any | None:
         """Retorna a data de abertura de uma empresa pelo ID."""
         query = "SELECT data_abertura FROM empresas WHERE id = %s"

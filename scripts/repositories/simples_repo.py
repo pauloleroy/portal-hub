@@ -23,6 +23,22 @@ class SimplesRepository:
             
         # Se a consulta foi bem-sucedida, mas não retornou linhas (resultado é None ou tupla vazia), retorna None
         return resultado[0] if resultado else None
+    
+    def pegar_guia(self, empresa_id: int, mes_ref: str) -> Decimal | str |None:
+        """Busca valor da guia apurado"""
+        query = """
+            SELECT valor_estimado_guia 
+            FROM simples_apuracoes
+            WHERE empresa_id = %s AND competencia = %s;
+            """
+        resultado = self._db._execute_query(query, (empresa_id, mes_ref), fetch_one=True)
+
+        # Se for string, é um ERRO do DB. Repassamos o erro.
+        if isinstance(resultado, str):
+            return resultado
+            
+        # Se a consulta foi bem-sucedida, mas não retornou linhas (resultado é None ou tupla vazia), retorna None
+        return resultado[0] if resultado else None
 
     def inserir_aliq(self, dados: Dict[str, Any], update: bool = False) -> str | None:
         """Insere uma nova apuração de alíquota no Simples Nacional. Retorna str em caso de erro ou None em caso de sucesso."""

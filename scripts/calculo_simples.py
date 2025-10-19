@@ -90,7 +90,16 @@ class CalculoSimples:
         
         return Decimal(aliquota_db) if not isinstance(aliquota_db, Decimal) else aliquota_db
 
+    def pegar_guia(self):
+        valor_guia_estimado = self.simples_repo.pegar_guia(self.empresa_id, self.mes_ref.strftime('%Y-%m-%d'))
+        if isinstance(valor_guia_estimado, str):
+            return f"ERRO DB ao buscar Valor Guia: {valor_guia_estimado}"
+        
+        if valor_guia_estimado is None:
+            return f"ERRO: Valor Guia Estimado para {self.mes_ref.strftime('%Y-%m')} não encontrada. Rode a apuração (calcular_guia) primeiro."
 
+        return Decimal(valor_guia_estimado) if not isinstance(valor_guia_estimado, Decimal) else valor_guia_estimado
+    
     def enviar_aliq(self) -> str | None:
         aliquota_efetiva = self._calcular_aliq()
         impostos = self._calcular_cada_imposto(aliquota_efetiva)

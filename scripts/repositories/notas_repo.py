@@ -80,21 +80,26 @@ class NotasRepository:
         # Arredondamento final
         return valor.quantize(Decimal('0.01'))
 
-    def inserir_nota(self, dados: Dict[str, Any]) -> str | None:
-        """Insere ou atualiza uma nota fiscal usando ON CONFLICT (chave). Retorna str em caso de erro ou None em caso de sucesso."""
+    def inserir_nota(self, dados: Dict[str, Any], update: bool = False) -> str | None:
+        """Insere ou atualiza uma nota fiscal. Retorna str em caso de erro ou None em caso de sucesso."""
+        CHAVES_CONFLITO = ['chave', 'id']
+        
         colunas = list(dados.keys())
         valores = list(dados.values())
 
         colunas_str = ", ".join(colunas)
         placeholders = ", ".join(["%s"] * len(valores))
 
-        # Cria a string de atualização para ON CONFLICT
-        update_set_clause = ', '.join([f"{col}=EXCLUDED.{col}" for col in colunas if col not in ['chave', 'id']])
-
         query = f"""
         INSERT INTO notas ({colunas_str})
         VALUES ({placeholders})
-        ON CONFLICT (chave) DO UPDATE SET
-        {update_set_clause};
         """
+
+        if update:
+            colunas_para_update = [col for col in colunas if col not in CHAVES_CONFLITO]
+            update_set_clause = ', '.join([f"{col}=EXCLUDED.{col}" for col in colunas_para_update])
+            query += f' ON CONFLICT (chave) DO UPDATE SET {update_set_clause};'
+        else:
+            query += ';'
+
         return self._db._execute_query(query, valores, commit=True)

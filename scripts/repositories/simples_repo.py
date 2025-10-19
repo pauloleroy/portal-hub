@@ -24,8 +24,10 @@ class SimplesRepository:
         # Se a consulta foi bem-sucedida, mas não retornou linhas (resultado é None ou tupla vazia), retorna None
         return resultado[0] if resultado else None
 
-    def inserir_aliq(self, dados: Dict[str, Any]) -> str | None:
+    def inserir_aliq(self, dados: Dict[str, Any], update: bool = False) -> str | None:
         """Insere uma nova apuração de alíquota no Simples Nacional. Retorna str em caso de erro ou None em caso de sucesso."""
+        CHAVES_CONFLITO = ['empresa_id', 'competencia', 'id']
+
         colunas = list(dados.keys())
         valores = list(dados.values())
 
@@ -34,8 +36,16 @@ class SimplesRepository:
         
         query = f"""
         INSERT INTO simples_apuracoes ({colunas_str})
-        VALUES ({placeholders});
+        VALUES ({placeholders})
         """
+
+        if update:
+            # Cria a string de atualização para ON CONFLICT
+            colunas_para_update = [col for col in colunas if col not in CHAVES_CONFLITO]
+            update_set_clause = ', '.join([f"{col}=EXCLUDED.{col}" for col in colunas_para_update])
+            query += f' ON CONFLICT (empresa_id, competencia) DO UPDATE SET {update_set_clause};'
+        else:
+            query += ';'
         # _execute_query retorna str (Erro) ou None (Sucesso)
         return self._db._execute_query(query, valores, commit=True)
 

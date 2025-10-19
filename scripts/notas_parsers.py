@@ -81,7 +81,11 @@ def extrair_dados_nfce(root: ET.Element, namespace: str, xml_texto: str) -> dict
         mes_ref = date(data_emissao.year, data_emissao.month, 1)
         prestador_nome = root.find(".//n:emit/n:xNome",ns).text
         prestador_doc = root.find(".//n:emit/n:CNPJ", ns).text
-        tomador_nome = root.find(".//n:dest/n:xNome", ns).text
+        tomador_nome = root.find(".//n:dest/n:xNome", ns)
+        if tomador_nome is not None and tomador_nome.text:
+            tomador_nome = tomador_nome.text
+        else:
+            tomador_nome = None
         tomador_doc = root.find(".//n:dest/n:CPF", ns)
         if tomador_doc is not None and tomador_doc.text:
             tomador_doc = tomador_doc.text

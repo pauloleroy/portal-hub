@@ -186,3 +186,58 @@ class NotasRepository:
             query += ';'
 
         return self._db._execute_query(query, valores, commit=True)
+    
+    def verificar_numeracao_faltante(self, empresa_id: int, tipo_nota: str, ano: int) -> Union[List[int], str]:
+        """
+        Verifica quais números de nota estão faltando para um dado tipo e ano,
+        INCLUINDO notas canceladas para conferência de sequência.
+        Retorna uma lista de números inteiros faltantes ou uma string de erro.
+        """
+        
+        # 1. Ajuste de Condição (WHERE)
+        where_condicoes = [
+            "empresa_id = %s",
+            "tipo = %s",
+            "EXTRACT(YEAR FROM data_emissao) = %s"
+        ]
+        
+        where_clause = " AND ".join(where_condicoes)
+        args = (empresa_id, tipo_nota, ano)
+        
+        query = f"""
+        WITH NumerosEmitidos AS (
+            -- 1. Seleciona o número da nota (convertido para INT)
+            SELECT CAST(numero AS BIGINT) AS num_emitido
+            FROM notas
+            WHERE {where_clause}
+        ),
+        IntervaloCompleto AS (
+            -- 2. Gera a série completa de números, do mínimo ao máximo encontrado
+            SELECT generate_series(
+                (SELECT MIN(num_emitido) FROM NumerosEmitidos),
+                (SELECT MAX(num_emitido) FROM NumerosEmitidos)
+            ) AS num_esperado
+            -- Garantir que haja notas, caso contrário, retorna uma série vazia
+            WHERE (SELECT COUNT(*) FROM NumerosEmitidos) > 0
+        )
+        -- 3. Encontra os números faltantes (LEFT JOIN que falha)
+        SELECT T1.num_esperado
+        FROM IntervaloCompleto T1
+        LEFT JOIN NumerosEmitidos T2 
+            ON T1.num_esperado = T2.num_emitido
+        WHERE T2.num_emitido IS NULL
+        ORDER BY T1.num_esperado;
+        """
+        
+        # Executa a query
+        resultados = self._db._execute_query(query, args, fetch_one=False)
+        
+        if isinstance(resultados, str):
+            return resultados # Retorna erro do DB
+        
+        if not resultados:
+            # Não houve números faltando (ou não houve notas emitidas, mas a série não foi gerada)
+            return []
+            
+        # Converte a lista de tuplas (números inteiros) para uma lista simples de ints
+        return [r[0] for r in resultados]

@@ -204,8 +204,7 @@ def apuracao_simples():
     # Pega dados do simples para um empresa e mes ref
     dados_mes = simples_repo.pegar_dados_mes(empresa_id, mes_ref_date)
 
-    # Pega soma de notas com e sem retencao de iss
-    com_sem_retencao = notas_repo.somar_receitas_por_retencao(empresa_id, data_inicial, data_final, incluir_grupo=True)
+    
 
     # Devem ser depois da consulta pois eles devem carregar para renderizar se tiver um e nao o outro
     # Valida retorno da db consulda de dados mes
@@ -216,17 +215,11 @@ def apuracao_simples():
     if not dados_mes:
         st.warning(f"Nenhum dado de apuração encontrado para {competencia_escolhida_str}. Execute o cálculo primeiro.")
         return
-    # Valida retorno da consulta das notas com e sem retencao
-    if isinstance(com_sem_retencao, str):
-        st.erro("Erro no banco de dados ao buscar notas na rotina com_sem_retencao")
-        return
     # Titulo cards
     st.text(f"{nome_empresa[0]} - {mes_ref_date.strftime('%m/%Y')} - {dados_mes['anexo']}")
 
     # Pegar se empresas tem filiais
     lista_filiais = empresas_repo.pegar_filias(empresa_id)
-    if lista_filiais:
-        st.write(lista_filiais)
 
     # Pega dados de aliq e iss para verificar se existem
     aliq = dados_mes['aliquota_efetiva']
@@ -239,22 +232,41 @@ def apuracao_simples():
         aliq_percentual = (aliq * 100).quantize(Decimal('0.000001'))
         iss_percentual = (iss * 100).quantize(Decimal('0.000001'))
         
-        col_aliq, col_iss = st.columns(2)
-        col_fat, col_ret = st.columns(2) 
-        col_cret, col_sret = st.columns(2)
-        col_rbt, col_guia = st.columns(2)
-        
-        col_aliq.metric('Alíquota Efetiva', f'{aliq_percentual} %')
-        col_iss.metric('ISS do Simples', f'{iss_percentual} %')
-        col_fat.metric("Faturamento Mensal",f"R$ {dados_mes['faturamento_mensal']:,.2f}")
-        col_ret.metric("Retenção ISS",f"R$ {dados_mes['retencoes']:,.2f}")
-        col_cret.metric("Faturamento Com Retencao",f"R$ {com_sem_retencao['receita_com_retencao']:,.2f}")
-        col_sret.metric("Faturamento Com Retencao",f"R$ {com_sem_retencao['receita_sem_retencao']:,.2f}")
-        col_rbt.metric("RBT12",f"R$ {dados_mes['rbt12']:,.2f}")
-        col_guia.metric('Guia DAS Estimada', f"R$ {dados_mes['valor_estimado_guia']:,.2f}")
     else:
         st.error("Erro na tipagem dos dados. Alíquotas não são Decimais.")
 
+    # Pega soma de notas com e sem retencao de iss se anexo III, IV ou V
+    st.write(anexo)
+    if anexo == "Anexo III" or anexo == "Anexo IV" or anexo == "Anexo V":
+        com_sem_retencao = notas_repo.somar_receitas_por_retencao(empresa_id, data_inicial, data_final, incluir_grupo=True)
+        # Valida retorno da consulta das notas com e sem retencao
+        if isinstance(com_sem_retencao, str):
+            st.erro("Erro no banco de dados ao buscar notas na rotina com_sem_retencao")
+            return
+    if anexo == "Anexo I" or "Anexo II":
+        matriz_filial = {}
+        matriz = empresas_repo.pegar_empresa_por_id(empresa_id)
+        matriz_filial[matriz['cnpj']] = empresa_id
+        for filial in lista_filiais:
+            matriz_filial[filial['cnpj']] = filial['id']
+    col_aliq, col_iss = st.columns(2)
+    col_rbt, col_guia = st.columns(2)
+    col_fat, col_ret = st.columns(2) 
+    col_cret, col_sret = st.columns(2)
+    
+    col_aliq.metric('Alíquota Efetiva', f'{aliq_percentual} %')
+    col_iss.metric('ISS do Simples', f'{iss_percentual} %')
+    col_fat.metric("Faturamento Liq Mensal",f"R$ {dados_mes['faturamento_mensal']:,.2f}")
+    col_ret.metric("Retenção ISS",f"R$ {dados_mes['retencoes']:,.2f}")
+    col_rbt.metric("RBT12",f"R$ {dados_mes['rbt12']:,.2f}")
+    col_guia.metric('Guia DAS Estimada', f"R$ {dados_mes['valor_estimado_guia']:,.2f}")
+    if anexo == "Anexo III" or anexo == "Anexo IV" or anexo == "Anexo V":
+        col_cret.metric("Faturamento Com Retencao",f"R$ {com_sem_retencao['receita_com_retencao']:,.2f}")
+        col_sret.metric("Faturamento Com Retencao",f"R$ {com_sem_retencao['receita_sem_retencao']:,.2f}")
+    if anexo == "Anexo I" or anexo == "Anexo II":
+        for cnpj, matriz_filial_id in matriz_filial.items():
+            fat_matriz_filial = notas_repo.somar_faturamento_liquido(matriz_filial_id, data_inicial, data_final)
+            st.metric(f"Fat Liq ({cnpj})",f"R$ {fat_matriz_filial:,.2f}")
 
 @st.fragment()
 def cadastro_empresa():
@@ -445,6 +457,7 @@ def cadastro_socio():
 
 with tab1:
     notas()
+    st.divider()
 with tab2:
     apuracao_simples()
 with tab3:

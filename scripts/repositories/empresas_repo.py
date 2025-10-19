@@ -17,6 +17,20 @@ class EmpresaRepository:
         resultado = self._db._execute_query(query, (cnpj_norm,), fetch_one=True)
         
         return resultado[0] if resultado else None
+    
+    def pegar_empresa_por_id(self, empresa_id: int) -> List[Dict[str, Any]] | None:
+        """Busca dados empresa por ID"""
+        query = "SELECT cnpj, razao_social, regime_tributario, detalhes_tributarios FROM empresas WHERE id = %s" 
+        resultados = self._db._execute_query(query, (empresa_id,), fetch_one=True)
+        if isinstance(resultados, str):
+            return resultados
+        
+        return {
+            'cnpj' : resultados[0],
+            'razao_social' : resultados[1],
+            'regime_tributario' : resultados[2],
+            'detalhes_tributarios' : resultados[3]
+        }
 
     def pegar_empresas(self) -> List[Dict[str, Any]] | None:
         """Retorna a lista de todas as empresas cadastradas."""

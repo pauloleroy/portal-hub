@@ -25,8 +25,6 @@ class CalculoSimples:
         self.empresa_id = empresa_id
         self.rbt12 = self._calcular_rbt_12()
         self.faixa = self._definir_faixa_simples()
-        self.aliquota_efetiva = self._calcular_aliq()
-        self.impostos = self._calcular_cada_imposto()
         self.retencoes = self._calcular_retencoes()
         self.faturamento_mensal = self._calcular_faturamento_mensal()
 
@@ -65,9 +63,9 @@ class CalculoSimples:
         aliquota_efetiva = (self.rbt12 * Decimal(str(self.faixa["aliquota"])) - Decimal(str(self.faixa["deducao"])))/ self.rbt12
         return aliquota_efetiva.quantize(Decimal('0.00000000'))
 
-    def _calcular_cada_imposto(self) -> dict:
+    def _calcular_cada_imposto(self, aliquota_efetiva : Decimal) -> dict:
         impostos = {
-            chave : (Decimal(str(aliq)) * self.aliquota_efetiva).quantize(Decimal('0.00000000'))
+            chave : (Decimal(str(aliq)) * aliquota_efetiva).quantize(Decimal('0.00000000'))
             for chave, aliq in self.faixa['impostos'].items()
         }
         return impostos
@@ -80,21 +78,40 @@ class CalculoSimples:
         total_retencoes = self.notas_repo.calcular_iss_periodo(self.empresa_id, self.mes_ref, self.mes_ref_final)
         return total_retencoes.quantize(Decimal('0.00'))
 
+    def pegar_aliq(self) -> Decimal | str:
+        aliquota_db = self.simples_repo.pegar_aliquota_efetiva(self.empresa_id, self.mes_ref.strftime('%Y-%m-%d'))
+        if isinstance(aliquota_db, str):
+        # É uma string de erro do DB
+            return f"ERRO DB ao buscar alíquota: {aliquota_db}"
+        
+        if aliquota_db is None:
+            # Alíquota não encontrada - Regra de negócio: Apuração deve ser rodada primeiro.
+            return f"ERRO: Alíquota Efetiva para {self.mes_ref.strftime('%Y-%m')} não encontrada. Rode a apuração (enviar_aliq) primeiro."
+        
+        return Decimal(aliquota_db) if not isinstance(aliquota_db, Decimal) else aliquota_db
+
+
     def enviar_aliq(self) -> str | None:
-        dados_impostos = json.dumps(self.impostos, default=lambda x: str(x))
+        aliquota_efetiva = self._calcular_aliq()
+        impostos = self._calcular_cada_imposto(aliquota_efetiva)
+        dados_impostos = json.dumps(impostos, default=lambda x: str(x))
         dados = {
             'empresa_id' : self.empresa_id,
             'competencia' : self.mes_ref,
             'rbt12' : self.rbt12,
             'anexo' : self.anexo,
-            'aliquota_efetiva' : self.aliquota_efetiva,
+            'aliquota_efetiva' : aliquota_efetiva,
             'impostos' : dados_impostos
         }
         retorno = self.simples_repo.inserir_aliq(dados)
         return retorno
     
     def calcular_guia(self) -> str | None:
-        valor_imposto = self.faturamento_mensal * self.aliquota_efetiva
+        resultado_aliq = self.pegar_aliq()
+        if isinstance(resultado_aliq, str):
+            return resultado_aliq
+        aliquota_efetiva = resultado_aliq
+        valor_imposto = self.faturamento_mensal * aliquota_efetiva
         valor_retencao = self.retencoes or Decimal('0')
         valor_guia =valor_imposto - valor_retencao
         retorno = self.simples_repo.inserir_calc_simples(self.faturamento_mensal, valor_retencao, valor_guia, self.empresa_id, self.mes_ref)

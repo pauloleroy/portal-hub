@@ -6,8 +6,12 @@ from datetime import datetime
 import time
 from scripts.repositories.empresas_repo import EmpresaRepository
 from scripts.repositories.notas_repo import NotasRepository
+from scripts.repositories.simples_repo import SimplesRepository
 from scripts.nota import Nota
-
+from datetime import date
+from dateutil.relativedelta import relativedelta
+from decimal import Decimal
+import calendar
 
 st.set_page_config(page_title="Portal HUB")
 st.title('Portal HUB')
@@ -15,10 +19,21 @@ st.title('Portal HUB')
 db_service = DatabaseService()
 empresas_repo = EmpresaRepository(db_service)
 notas_repo = NotasRepository(db_service)
+simples_repo = SimplesRepository(db_service)
 
-tab1, tab2, tab3 = st.tabs(["Notas", "Cadastrar Empresa", "Cadastrar Sócio"])
+tab1, tab2, tab3, tab4 = st.tabs(["Notas", "Apuração Simples","Cadastrar Empresa", "Cadastrar Sócio"])
 
+def gerar_opcoes_competencia(meses_para_tras=18):
+    """Gera uma lista de strings 'MM/AAAA' para as competências."""
+    hoje = date.today().replace(day=1)
+    opcoes = []
+    # Cria a lista a partir do mês atual até meses_para_tras
+    for i in range(meses_para_tras + 1):
+        competencia = hoje - relativedelta(months=i)
+        opcoes.append(competencia.strftime("%m/%Y"))
+    return opcoes
 
+#CONTEUDO DA PAGINA
 @st.fragment()
 def notas():
     lista_empresas_resultado = empresas_repo.pegar_empresas()
@@ -81,6 +96,87 @@ def notas():
         else:
             st.success(f'Todas as {len(arquivos)} notas foram processadas com sucesso!') 
     
+
+@st.fragment()
+def apuracao_simples():
+    lista_empresas_resultado = empresas_repo.pegar_empresas()
+    if isinstance(lista_empresas_resultado, str):
+        st.error(f"Erro ao carregar empresas do banco de dados: {lista_empresas_resultado}")
+        return
+    lista_empresas = lista_empresas_resultado or []
+    opcoes = {f"{e['nome']} ({e['cnpj']})": e['id'] for e in lista_empresas}
+    if 'selectbox_index' not in st.session_state:
+        st.session_state.selectbox_index = None
+    empresa_id = None
+    st.subheader('Dados Simples')
+    col_empresa, col_data = st.columns([3,1])
+    escolha = col_empresa.selectbox(
+        "Selecione a empresa:",
+        options=list(opcoes.keys()),
+        index=st.session_state.selectbox_index,
+        placeholder="Digite para buscar...",
+        key='empresas_simples'
+    )
+    if escolha is not None and escolha in opcoes: 
+        empresa_id = opcoes[escolha]
+        try:
+            st.session_state.selectbox_index = list(opcoes.keys()).index(escolha)
+        except ValueError:
+            st.session_state.selectbox_index = 0
+
+    opcoes_competencia = gerar_opcoes_competencia(meses_para_tras=18)
+    
+    competencia_escolhida_str = col_data.selectbox(
+        "Mês de Referência:",
+        options=opcoes_competencia,
+        index=1, # Default para o mês anterior (mais comum)
+        key='mes_referencia_simples'
+    )
+    mes, ano = map(int, competencia_escolhida_str.split('/'))
+    mes_ref_date = date(ano, mes, 1)
+
+    if empresa_id is None:
+        return
+    data_inicial = mes_ref_date
+    ultimo_dia = calendar.monthrange(mes_ref_date.year, mes_ref_date.month)[1]
+    data_final = mes_ref_date.replace(day=ultimo_dia) 
+    nome_empresa = [chave for chave, valor in opcoes.items() if valor==empresa_id]
+    dados_mes = simples_repo.pegar_dados_mes(empresa_id, mes_ref_date)
+    com_sem_retencao = notas_repo.somar_receitas_por_retencao(empresa_id, data_inicial, data_final)
+    if isinstance(dados_mes, str):
+        st.error(f"Erro no banco de dados ao buscar apuração: {dados_mes}")
+        return
+    if not dados_mes:
+        st.warning(f"Nenhum dado de apuração encontrado para {competencia_escolhida_str}. Execute o cálculo primeiro.")
+        return
+    if isinstance(com_sem_retencao, str):
+        st.erro("Erro no banco de dados ao buscar notas na rotina com_sem_retencao")
+        return
+    st.text(f"{nome_empresa[0]} - {mes_ref_date.strftime('%m/%Y')} - {dados_mes['anexo']}")
+    aliq = dados_mes['aliquota_efetiva']
+    iss = dados_mes['impostos']['ISS']
+    if isinstance(aliq, Decimal) and isinstance(iss, Decimal):
+        
+        # O quantize deve ser feito após a multiplicação
+        aliq_percentual = (aliq * 100).quantize(Decimal('0.000001'))
+        iss_percentual = (iss * 100).quantize(Decimal('0.000001'))
+        
+        col_aliq, col_iss = st.columns(2)
+        col_fat, col_ret = st.columns(2) 
+        col_cret, col_sret = st.columns(2)
+        col_rbt, col_guia = st.columns(2)
+        
+        col_aliq.metric('Alíquota Efetiva', f'{aliq_percentual} %')
+        col_iss.metric('ISS do Simples', f'{iss_percentual} %')
+        col_fat.metric("Faturamento Mensal",f"R$ {dados_mes['faturamento_mensal']:,.2f}")
+        col_ret.metric("Retenção ISS",f"R$ {dados_mes['retencoes']:,.2f}")
+        col_cret.metric("Faturamento Com Retencao",f"R$ {com_sem_retencao['receita_com_retencao']:,.2f}")
+        col_sret.metric("Faturamento Com Retencao",f"R$ {com_sem_retencao['receita_sem_retencao']:,.2f}")
+        col_rbt.metric("RBT12",f"R$ {dados_mes['rbt12']:,.2f}")
+        col_guia.metric('Guia DAS Estimada', f"R$ {dados_mes['valor_estimado_guia']:,.2f}")
+    else:
+        st.error("Erro na tipagem dos dados. Alíquotas não são Decimais.")
+
 
 @st.fragment()
 def cadastro_empresa():
@@ -272,6 +368,8 @@ def cadastro_socio():
 with tab1:
     notas()
 with tab2:
-    cadastro_empresa()
+    apuracao_simples()
 with tab3:
+    cadastro_empresa()
+with tab4:
     cadastro_socio()

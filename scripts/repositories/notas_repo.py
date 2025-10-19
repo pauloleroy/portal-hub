@@ -1,6 +1,7 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple, Union
 from decimal import Decimal
 from ..conexao_db import DatabaseService
+from datetime import date
 
 class NotasRepository:
     """Lógica de acesso, cálculo e manipulação de Notas Fiscais e Apurações (Simples)."""
@@ -79,6 +80,55 @@ class NotasRepository:
             
         # Arredondamento final
         return valor.quantize(Decimal('0.01'))
+    def somar_receitas_por_retencao(self, empresa_id: int, data_inicial: date, data_final: date) -> Union[Dict[str, Decimal], str]:
+        """
+        Soma o valor total das notas fiscais da empresa no período, 
+        separando a receita que teve retenção de ISS daquela que não teve.
+        """
+        query = """
+            SELECT
+                SUM(CASE
+                    -- Receita COM Retenção: valor_iss é maior que zero
+                    WHEN valor_iss IS NOT NULL AND valor_iss > 0 THEN valor_total
+                    ELSE 0
+                END) AS receita_com_retencao,
+                SUM(CASE
+                    -- Receita SEM Retenção: valor_iss é nulo ou igual a zero
+                    WHEN valor_iss IS NULL OR valor_iss = 0 THEN valor_total
+                    ELSE 0
+                END) AS receita_sem_retencao
+            FROM notas
+            WHERE empresa_id = %s
+            AND data_emissao BETWEEN %s AND %s;
+            """
+        
+        # Converte as datas para o formato esperado pelo banco de dados
+        data_inicial_str = data_inicial.strftime('%Y-%m-%d')
+        data_final_str = data_final.strftime('%Y-%m-%d')
+        
+        # O resultado será (Decimal, Decimal) ou str (erro) ou None
+        resultado: Union[Tuple, str, None] = self._db._execute_query(
+            query, 
+            (empresa_id, data_inicial_str, data_final_str), 
+            fetch_one=True
+        )
+        
+        if isinstance(resultado, str):
+            return resultado # Erro DB
+    
+        # Se o SUM retornou NULL (sem notas no período), usamos Decimal('0.00')
+        if not resultado:
+            receita_com = Decimal('0.00')
+            receita_sem = Decimal('0.00')
+        else:
+            # Garante que, mesmo que o SUM retorne NULL (None no Python), usemos 0
+            receita_com = resultado[0] if resultado[0] is not None else Decimal('0.00')
+            receita_sem = resultado[1] if resultado[1] is not None else Decimal('0.00')
+
+        return {
+            'receita_com_retencao': receita_com,
+            'receita_sem_retencao': receita_sem
+    }
 
     def inserir_nota(self, dados: Dict[str, Any], update: bool = False) -> str | None:
         """Insere ou atualiza uma nota fiscal. Retorna str em caso de erro ou None em caso de sucesso."""

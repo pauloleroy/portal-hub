@@ -1,6 +1,7 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Union, Tuple
 from decimal import Decimal
 from ..conexao_db import DatabaseService
+import json
 
 class SimplesRepository:
     """Lógica de acesso e manipulação de dados de Empresas e Sócios."""
@@ -23,6 +24,47 @@ class SimplesRepository:
             
         # Se a consulta foi bem-sucedida, mas não retornou linhas (resultado é None ou tupla vazia), retorna None
         return resultado[0] if resultado else None
+    
+    def pegar_dados_mes(self, empresa_id: int, mes_ref: str) -> Union[Dict[str, Any], str, None]:
+        query = """
+            SELECT aliquota_efetiva, anexo,  rbt12, retencoes, faturamento_mensal, valor_estimado_guia, impostos
+            FROM simples_apuracoes
+            WHERE empresa_id = %s AND competencia = %s;
+            """
+        resultado: Union[Tuple, str, None] = self._db._execute_query(query, (empresa_id, mes_ref), fetch_one=True)
+        
+        # Se for string, é um ERRO do DB. Repassamos o erro.
+        if isinstance(resultado, str):
+            return resultado
+        
+        if not resultado:
+            return None
+        
+        impostos_brutos = resultado[6]
+        # Se o campo JSONB for NULL ou vazio (o que é improvável se foi inserido corretamente), tratamos aqui.
+        if not impostos_brutos:
+            impostos_convertidos = {}
+        elif isinstance(impostos_brutos, str):
+            # Fallback: Se por acaso o driver não converter e vier como string, rodamos o json.loads
+            impostos_convertidos = json.loads(impostos_brutos)
+        else:
+            # CASO NORMAL: O driver (psycopg2) já converteu o JSONB para dict Python
+            impostos_convertidos = impostos_brutos
+
+        impostos_finais = {
+            chave: Decimal(valor)
+            for chave, valor in impostos_convertidos.items()
+        }
+
+        return {
+            'aliquota_efetiva': resultado[0], 
+            'anexo': resultado[1],
+            'rbt12': resultado[2],
+            'retencoes': resultado[3],
+            'faturamento_mensal': resultado[4],
+            'valor_estimado_guia': resultado[5],
+            'impostos': impostos_finais
+        }
     
     def pegar_guia(self, empresa_id: int, mes_ref: str) -> Decimal | str |None:
         """Busca valor da guia apurado"""

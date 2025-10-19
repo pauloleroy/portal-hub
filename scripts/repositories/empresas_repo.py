@@ -35,6 +35,12 @@ class EmpresaRepository:
         resultado = self._db._execute_query(query, (empresa_id,), fetch_one=True)
         return resultado[0] if resultado else None
 
+    def pegar_anexo(self, empresa_id) -> str | None:
+        """Retorna anexo da empresa"""
+        query = "SELECT detalhes_tributarios FROM empresas WHERE id = %s"
+        resultado = self._db._execute_query(query, (empresa_id,), fetch_one=True)
+        return resultado[0] if resultado else None
+
     def cadastrar_empresa_socio(self, tabela: str, dados: Dict[str, Any]) -> str | None:
         """ Insere novos dados em uma tabela (empresas ou socios)."""
 

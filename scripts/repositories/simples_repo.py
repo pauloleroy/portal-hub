@@ -60,9 +60,9 @@ class SimplesRepository:
             'aliquota_efetiva': resultado[0], 
             'anexo': resultado[1],
             'rbt12': resultado[2],
-            'retencoes': resultado[3],
-            'faturamento_mensal': resultado[4],
-            'valor_estimado_guia': resultado[5],
+            'retencoes': resultado[3] or Decimal('0'),
+            'faturamento_mensal': resultado[4] or Decimal('0'),
+            'valor_estimado_guia': resultado[5] or Decimal('0'),
             'impostos': impostos_finais
         }
     

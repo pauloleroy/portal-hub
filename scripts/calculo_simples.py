@@ -100,7 +100,7 @@ class CalculoSimples:
 
         return Decimal(valor_guia_estimado) if not isinstance(valor_guia_estimado, Decimal) else valor_guia_estimado
     
-    def enviar_aliq(self) -> str | None:
+    def enviar_aliq(self, update : bool = False) -> str | None:
         aliquota_efetiva = self._calcular_aliq()
         impostos = self._calcular_cada_imposto(aliquota_efetiva)
         dados_impostos = json.dumps(impostos, default=lambda x: str(x))
@@ -112,7 +112,7 @@ class CalculoSimples:
             'aliquota_efetiva' : aliquota_efetiva,
             'impostos' : dados_impostos
         }
-        retorno = self.simples_repo.inserir_aliq(dados)
+        retorno = self.simples_repo.inserir_aliq(dados, update)
         return retorno
     
     def calcular_guia(self) -> str | None:

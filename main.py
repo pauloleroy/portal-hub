@@ -8,6 +8,7 @@ from scripts.repositories.empresas_repo import EmpresaRepository
 from scripts.repositories.notas_repo import NotasRepository
 from scripts.repositories.simples_repo import SimplesRepository
 from scripts.nota import Nota
+from scripts.calculo_simples import CalculoSimples
 from datetime import date
 from dateutil.relativedelta import relativedelta
 from decimal import Decimal
@@ -99,6 +100,8 @@ def notas():
 
 @st.fragment()
 def apuracao_simples():
+    if 'recalcular_aliq' not in st.session_state:
+        st.session_state.recalcular_aliq = False
     lista_empresas_resultado = empresas_repo.pegar_empresas()
     if isinstance(lista_empresas_resultado, str):
         st.error(f"Erro ao carregar empresas do banco de dados: {lista_empresas_resultado}")
@@ -139,7 +142,35 @@ def apuracao_simples():
         return
     data_inicial = mes_ref_date
     ultimo_dia = calendar.monthrange(mes_ref_date.year, mes_ref_date.month)[1]
-    data_final = mes_ref_date.replace(day=ultimo_dia) 
+    data_final = mes_ref_date.replace(day=ultimo_dia)
+
+    anexo = empresas_repo.pegar_anexo(empresa_id)
+    VALIDADOR_ANEXO = ['Anexo I', 'Anexo II', 'Anexo III', 'Anexo IV', 'Anexo V']
+    if anexo not in VALIDADOR_ANEXO:
+        st.warning(f'Empresa não se enquadra no simples. Ou detalhe_trib: {anexo} cadastrado no formato errado')
+        return
+    
+    col_btn, col_rad, col_empt1, col_btn2 = st.columns(4, gap=None, vertical_alignment='center')
+
+    if col_btn.button('Apurar Alíquota'):
+        cal_simples = CalculoSimples(mes_ref_date, anexo, empresa_id, empresas_repo, notas_repo, simples_repo)
+        retorno_enviar_aliq = cal_simples.enviar_aliq(st.session_state.recalcular_aliq)
+        if isinstance(retorno_enviar_aliq, str):
+            st.error(retorno_enviar_aliq)
+        else:
+            st.success('Alíquota Apurada')
+    opcoes_radio = { 'Não' : False, 'Sim' : True}
+    escolha_radio = col_rad.radio('Substituir Aliq', list(opcoes_radio.keys()) , index=0, horizontal=True, key='radio_apuracao')
+    st.session_state.recalcular_aliq = opcoes_radio[escolha_radio]
+    
+    if col_btn2.button('Calcular Guia'):
+        cal_simples = CalculoSimples(mes_ref_date, anexo, empresa_id, empresas_repo, notas_repo, simples_repo)
+        retorno_calcular_guia = cal_simples.calcular_guia()
+        if isinstance(retorno_calcular_guia, str):
+            st.error(retorno_calcular_guia)
+        else:
+            st.success('Guia Calculada')
+
     nome_empresa = [chave for chave, valor in opcoes.items() if valor==empresa_id]
     dados_mes = simples_repo.pegar_dados_mes(empresa_id, mes_ref_date)
     com_sem_retencao = notas_repo.somar_receitas_por_retencao(empresa_id, data_inicial, data_final)

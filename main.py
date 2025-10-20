@@ -24,6 +24,66 @@ simples_repo = SimplesRepository(db_service)
 
 tab1, tab2, tab3, tab4 = st.tabs(["Notas", "Apuração Simples","Cadastrar Empresa", "Cadastrar Sócio"])
 
+
+def dados_inicias_simples() -> dict | None:
+    # Lista de matriz para popular select box
+    lista_empresas_resultado = empresas_repo.pegar_empresas_matriz()
+    # Verifica de se teve êxito na consulta de lista de empresas matriz db 
+    if isinstance(lista_empresas_resultado, str):
+        st.error(f"Erro ao carregar empresas do banco de dados: {lista_empresas_resultado}")
+        return
+    # Caso não haja nenhuma empresa cadastrada gerar lista vazia
+    lista_empresas = lista_empresas_resultado or []
+    # Setando valores para popular o select box chave NOME (CNPJ) valor ID
+    opcoes_empresas = {f"{e['nome']} ({e['cnpj']})": e['id'] for e in lista_empresas}
+    # Gerando valores para popular selectbox mes referencia
+    opcoes_competencia = gerar_opcoes_competencia(meses_para_tras=18)
+    # Dict de opcoes do radio se é para substituir dados aliq
+    opcoes_radio = { 'Não' : False, 'Sim' : True}
+    return {
+        'opcoes_empresas' : opcoes_empresas,
+        'opcoes_competencia' : opcoes_competencia,
+        'opcoes_radio' : opcoes_radio
+    }
+
+def dados_renderizar_simples(empresa_id : int, mes_ref_date : date) -> dict | None:
+    # Pegando da db anexo da empresa selecionada
+    anexo = empresas_repo.pegar_anexo(empresa_id)
+    st.write(anexo)
+    # Validador para verificar se sitacao_fiscal na db está cadastrada corretamente ou não seja do simples
+    VALIDADOR_ANEXO = ['Anexo I', 'Anexo II', 'Anexo III', 'Anexo IV', 'Anexo V']
+    if anexo not in VALIDADOR_ANEXO:
+        st.warning(f'Empresa não se enquadra no simples. Ou detalhe_trib: {anexo} cadastrado no formato errado')
+        return
+   
+    # Pegar dados do simples de uma empresa pelo mes_ref
+    dados_mes = simples_repo.pegar_dados_mes(empresa_id, mes_ref_date)
+    
+    # Pegar se empresas tem filiais
+    lista_filiais = empresas_repo.pegar_filias(empresa_id)
+
+    return {
+        'anexo' : anexo,
+        'dados_mes' : dados_mes,
+        'lista_filiais' : lista_filiais
+    }
+
+def dados_card_III_IV_IV(empresa_id : int, data_inicial : date, data_final : date) -> dict | None:
+    com_sem_retencao = notas_repo.somar_receitas_por_retencao(empresa_id, data_inicial, data_final, incluir_grupo=True)
+    # Valida retorno da consulta das notas com e sem retencao
+    if isinstance(com_sem_retencao, str):
+        st.erro("Erro no banco de dados ao buscar notas na rotina com_sem_retencao")
+        return
+    return com_sem_retencao
+    
+def dados_card_I_II(empresa_id : int, lista_filiais : dict):
+    matriz_filial = {}
+    matriz = empresas_repo.pegar_empresa_por_id(empresa_id)
+    matriz_filial[matriz['cnpj']] = empresa_id
+    for filial in lista_filiais:
+        matriz_filial[filial['cnpj']] = filial['id']
+    return matriz_filial
+
 def gerar_opcoes_competencia(meses_para_tras=18):
     """Gera uma lista de strings 'MM/AAAA' para as competências."""
     hoje = date.today().replace(day=1)
@@ -100,49 +160,40 @@ def notas():
 
 @st.fragment()
 def apuracao_simples():
-    # Criando seassion stade para radio de subtituir aliq na DB
+    # Carregando dados iniciais
+    dados_iniciais = dados_inicias_simples()
+    opcoes_empresas = dados_iniciais['opcoes_empresas']
+    opcoes_competencia = dados_iniciais['opcoes_competencia']
+    opcoes_radio = dados_iniciais ['opcoes_radio']
+    
+    # Criando session_states da aba
     if 'recalcular_aliq' not in st.session_state:
         st.session_state.recalcular_aliq = False
-
-    # Pegando empresas matriz da db
-    lista_empresas_resultado = empresas_repo.pegar_empresas_matriz()
-
-    # Verifica de se teve êxito na consulta de lista de empresas matriz db 
-    if isinstance(lista_empresas_resultado, str):
-        st.error(f"Erro ao carregar empresas do banco de dados: {lista_empresas_resultado}")
-        return
-    
-    # Caso não haja nenhuma empresa cadastrada gerar lista vazia
-    lista_empresas = lista_empresas_resultado or []
-    # Setando valores para popular o select box chave NOME (CNPJ) valor ID
-    opcoes = {f"{e['nome']} ({e['cnpj']})": e['id'] for e in lista_empresas}
-
-    # Criando session_state do selectbox de empresas
     if 'selectbox_index' not in st.session_state:
         st.session_state.selectbox_index = None
     empresa_id = None
 
+    # Titulo
     st.subheader('Dados Simples')
 
+    # Layout selectbox empresa e competencia
     col_empresa, col_data = st.columns([3,1])
+
     # selectbox  de Empresas
     escolha = col_empresa.selectbox(
         "Selecione a empresa:",
-        options=list(opcoes.keys()),
+        options=list(opcoes_empresas.keys()),
         index=st.session_state.selectbox_index,
         placeholder="Digite para buscar...",
         key='empresas_simples'
     )
-    # Validação de seleção do selectbox
-    if escolha is not None and escolha in opcoes: 
-        empresa_id = opcoes[escolha]
+    # Validação de seleção do selectbox de empresas
+    if escolha is not None and escolha in opcoes_empresas: 
+        empresa_id = opcoes_empresas[escolha]
         try:
-            st.session_state.selectbox_index = list(opcoes.keys()).index(escolha)
+            st.session_state.selectbox_index = list(opcoes_empresas.keys()).index(escolha)
         except ValueError:
             st.session_state.selectbox_index = 0
-
-    # Gerando valores para popular selectbox mes referencia
-    opcoes_competencia = gerar_opcoes_competencia(meses_para_tras=18)
     
     # select box mes referencia
     competencia_escolhida_str = col_data.selectbox(
@@ -154,26 +205,21 @@ def apuracao_simples():
     # tratando valores da seleção mes referencia para data 1º dia do mes
     mes, ano = map(int, competencia_escolhida_str.split('/'))
     mes_ref_date = date(ano, mes, 1)
-
-    # Validação se alguma empreesa foi selecionada
-    if empresa_id is None:
-        return
     # Gerando dados de 1º e ult dia do mes para chamar funcoes que pedem periodo
     data_inicial = mes_ref_date
     ultimo_dia = calendar.monthrange(mes_ref_date.year, mes_ref_date.month)[1]
     data_final = mes_ref_date.replace(day=ultimo_dia)
 
-    # Pegando da db anexo da empresa selecionada
-    anexo = empresas_repo.pegar_anexo(empresa_id)
-    
-    # Validador para verificar se sitacao_fiscal na db está cadastrada corretamente ou não seja do simples
-    VALIDADOR_ANEXO = ['Anexo I', 'Anexo II', 'Anexo III', 'Anexo IV', 'Anexo V']
-    if anexo not in VALIDADOR_ANEXO:
-        st.warning(f'Empresa não se enquadra no simples. Ou detalhe_trib: {anexo} cadastrado no formato errado')
+    # Validação se alguma empreesa foi selecionada
+    if empresa_id is None:
         return
+    # Pegando da db anexo da empresa selecionada
+    dados_renderizar = dados_renderizar_simples(empresa_id, mes_ref_date)
+    anexo = dados_renderizar['anexo']
+    dados_mes = dados_renderizar['dados_mes']
+    lista_filiais = dados_renderizar['lista_filiais']
     
     col_btn, col_rad, col_empt1, col_btn2 = st.columns(4, gap=None, vertical_alignment='center')
-
     # Botão para apuração de aliq
     if col_btn.button('Apurar Alíquota'):
         # Criação da classe CalculoSimples para envio de dados e validação de retorno do commit na DB
@@ -183,9 +229,9 @@ def apuracao_simples():
             st.error(retorno_enviar_aliq)
         else:
             st.success('Alíquota Apurada')
+            st.rerun()
     
-    # Dict de opcoes do radio se é para substituir dados aliq
-    opcoes_radio = { 'Não' : False, 'Sim' : True}
+    # Radio se é para substituir dados aliq
     escolha_radio = col_rad.radio('Substituir Aliq', list(opcoes_radio.keys()) , index=0, horizontal=True, key='radio_apuracao')
     st.session_state.recalcular_aliq = opcoes_radio[escolha_radio]
     
@@ -197,29 +243,22 @@ def apuracao_simples():
             st.error(retorno_calcular_guia)
         else:
             st.success('Guia Calculada')
+            st.rerun()
 
     # Gerando variaveis de Nome para gerar titulo dos cards
-    nome_empresa = [chave for chave, valor in opcoes.items() if valor==empresa_id]
+    nome_empresa = [chave for chave, valor in opcoes_empresas.items() if valor==empresa_id]
 
-    # Pega dados do simples para um empresa e mes ref
-    dados_mes = simples_repo.pegar_dados_mes(empresa_id, mes_ref_date)
-
-    
-
-    # Devem ser depois da consulta pois eles devem carregar para renderizar se tiver um e nao o outro
-    # Valida retorno da db consulda de dados mes
+    # Validação se existem dados para este mes e empresa, deve ser fora da funcao para renderizar a pag
     if isinstance(dados_mes, str):
         st.error(f"Erro no banco de dados ao buscar apuração: {dados_mes}")
         return
     # Valida retorno se nao hover apuracao para o mes
     if not dados_mes:
-        st.warning(f"Nenhum dado de apuração encontrado para {competencia_escolhida_str}. Execute o cálculo primeiro.")
+        st.warning(f"Nenhum dado de apuração encontrado para {mes_ref_date.strftime('%m%Y')}. Execute o cálculo primeiro.")
         return
+    
     # Titulo cards
-    st.text(f"{nome_empresa[0]} - {mes_ref_date.strftime('%m/%Y')} - {dados_mes['anexo']}")
-
-    # Pegar se empresas tem filiais
-    lista_filiais = empresas_repo.pegar_filias(empresa_id)
+    st.text(f"{nome_empresa[0]} - {mes_ref_date.strftime('%m/%Y')} - {anexo}")
 
     # Pega dados de aliq e iss para verificar se existem
     aliq = dados_mes['aliquota_efetiva']
@@ -227,7 +266,6 @@ def apuracao_simples():
 
     # Valida se há valores para o mes e gera cards
     if isinstance(aliq, Decimal) and isinstance(iss, Decimal):
-        
         # Conversao de valores para X,XXXXXXX
         aliq_percentual = (aliq * 100).quantize(Decimal('0.000001'))
         iss_percentual = (iss * 100).quantize(Decimal('0.000001'))
@@ -237,22 +275,15 @@ def apuracao_simples():
 
     # Pega soma de notas com e sem retencao de iss se anexo III, IV ou V
     st.write(anexo)
-    if anexo == "Anexo III" or anexo == "Anexo IV" or anexo == "Anexo V":
-        com_sem_retencao = notas_repo.somar_receitas_por_retencao(empresa_id, data_inicial, data_final, incluir_grupo=True)
-        # Valida retorno da consulta das notas com e sem retencao
-        if isinstance(com_sem_retencao, str):
-            st.erro("Erro no banco de dados ao buscar notas na rotina com_sem_retencao")
-            return
-    if anexo == "Anexo I" or "Anexo II":
-        matriz_filial = {}
-        matriz = empresas_repo.pegar_empresa_por_id(empresa_id)
-        matriz_filial[matriz['cnpj']] = empresa_id
-        for filial in lista_filiais:
-            matriz_filial[filial['cnpj']] = filial['id']
+    if anexo in ["Anexo III", "Anexo IV", "Anexo V"]:
+        com_sem_retencao = dados_card_III_IV_IV(empresa_id, data_inicial, data_final)
+    if anexo in ["Anexo I", "Anexo II"]:
+        matriz_filial = dados_card_I_II(empresa_id, lista_filiais)
+
     col_aliq, col_iss = st.columns(2)
     col_rbt, col_guia = st.columns(2)
     col_fat, col_ret = st.columns(2) 
-    col_cret, col_sret = st.columns(2)
+    
     
     col_aliq.metric('Alíquota Efetiva', f'{aliq_percentual} %')
     col_iss.metric('ISS do Simples', f'{iss_percentual} %')
@@ -260,14 +291,49 @@ def apuracao_simples():
     col_ret.metric("Retenção ISS",f"R$ {dados_mes['retencoes']:,.2f}")
     col_rbt.metric("RBT12",f"R$ {dados_mes['rbt12']:,.2f}")
     col_guia.metric('Guia DAS Estimada', f"R$ {dados_mes['valor_estimado_guia']:,.2f}")
-    if anexo == "Anexo III" or anexo == "Anexo IV" or anexo == "Anexo V":
+    if anexo in ["Anexo III", "Anexo IV", "Anexo V"]:
+        st.text('Faturamento Com vs Sem Retenção')
+        col_cret, col_sret = st.columns(2)
         col_cret.metric("Faturamento Com Retencao",f"R$ {com_sem_retencao['receita_com_retencao']:,.2f}")
         col_sret.metric("Faturamento Com Retencao",f"R$ {com_sem_retencao['receita_sem_retencao']:,.2f}")
-    if anexo == "Anexo I" or anexo == "Anexo II":
-        for cnpj, matriz_filial_id in matriz_filial.items():
-            fat_matriz_filial = notas_repo.somar_faturamento_liquido(matriz_filial_id, data_inicial, data_final)
-            st.metric(f"Fat Liq ({cnpj})",f"R$ {fat_matriz_filial:,.2f}")
-
+    if anexo in ["Anexo I", "Anexo II"]:
+        st.text('Faturamento Por Matriz/Filial')
+        empresas = list(matriz_filial.items())
+        
+        # Itera sobre a lista de empresas, pulando de 2 em 2
+        for i in range(0, len(empresas), 2):
+            col1, col2 = st.columns(2)
+            
+            cnpj1, filial_id1 = empresas[i]
+            fat_matriz_filial1 = notas_repo.somar_faturamento_liquido(
+                filial_id1, data_inicial.strftime('%Y-%m-%d'), data_final.strftime('%Y-%m-%d')
+            )
+            
+            if isinstance(fat_matriz_filial1, str):
+                col1.error(f"Erro DB Faturamento {cnpj1}: {fat_matriz_filial1}")
+            else:
+                titulo1 = "Matriz" if filial_id1 == empresa_id else "Filial"
+                col1.metric(
+                    f"Fat Liq {titulo1} ({cnpj1})",
+                    f"R$ {fat_matriz_filial1:,.2f}"
+                )
+                
+            # Processa a segunda coluna (Empresa 'i + 1'), se existir
+            if i + 1 < len(empresas):
+                cnpj2, filial_id2 = empresas[i + 1]
+                fat_matriz_filial2 = notas_repo.somar_faturamento_liquido(
+                    filial_id2, data_inicial.strftime('%Y-%m-%d'), data_final.strftime('%Y-%m-%d')
+                )
+                
+                if isinstance(fat_matriz_filial2, str):
+                    col2.error(f"Erro DB Faturamento {cnpj2}: {fat_matriz_filial2}")
+                else:
+                    titulo2 = "Matriz" if filial_id2 == empresa_id else "Filial"
+                    col2.metric(
+                        f"Fat Liq {titulo2} ({cnpj2})",
+                        f"R$ {fat_matriz_filial2:,.2f}"
+                    )
+                    
 @st.fragment()
 def cadastro_empresa():
     if 'form_values' not in st.session_state:

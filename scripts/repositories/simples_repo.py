@@ -27,7 +27,7 @@ class SimplesRepository:
     
     def pegar_dados_mes(self, empresa_id: int, mes_ref: str) -> Union[Dict[str, Any], str, None]:
         query = """
-            SELECT aliquota_efetiva, anexo,  rbt12, retencoes, faturamento_mensal, valor_estimado_guia, impostos
+            SELECT aliquota_efetiva, anexo,  rbt12, retencoes, faturamento_mensal, valor_estimado_guia, impostos, id, valor_guia_oficial
             FROM simples_apuracoes
             WHERE empresa_id = %s AND competencia = %s;
             """
@@ -63,7 +63,9 @@ class SimplesRepository:
             'retencoes': resultado[3] or Decimal('0'),
             'faturamento_mensal': resultado[4] or Decimal('0'),
             'valor_estimado_guia': resultado[5] or Decimal('0'),
-            'impostos': impostos_finais
+            'impostos': impostos_finais,
+            'id' : resultado[7],
+            'valor_guia_oficial' : resultado[8] or Decimal('0')
         }
     
     def pegar_guia(self, empresa_id: int, mes_ref: str) -> Decimal | str |None:
@@ -118,3 +120,38 @@ class SimplesRepository:
         """
         params = (faturamento_mensal, retencoes, valor_estimado_guia, empresa_id, competencia)
         return self._db._execute_query(query, params, commit=True)
+    
+    def inserir_valor_guia(self, simples_id: int, valor_guia_oficial: Decimal) -> Union[None, str]:
+            """
+            Insere o valor oficial da guia na tabela e calcula a diferença.
+            Retorna: None (sucesso) ou str (erro do DB).
+            """
+            
+            # Query simplificada: Apenas UPDATE e cálculo.
+            query = """
+            UPDATE simples_apuracoes
+            SET 
+                valor_guia_oficial = %s,
+                diferenca = %s - valor_estimado_guia 
+            WHERE id = %s;
+            """
+            
+            # Os argumentos continuam os mesmos
+            args = (valor_guia_oficial, valor_guia_oficial, simples_id)
+            
+            # Executa a query
+            # 💡 fetch_one=False (ou omita, pois não há RETURNING)
+            # 💡 commit=True para garantir que o UPDATE seja salvo no DB
+            retorno: Union[str, None] = self._db._execute_query(
+                query, 
+                args, 
+                fetch_one=False, # Não precisamos de retorno de dados
+                commit=True      # ESSENCIAL: Garante que o UPDATE seja permanente
+            )
+            
+            if isinstance(retorno, str):
+                # Retorna string de erro do DB
+                return retorno
+                
+            # Sucesso: Se não houve erro (string), retornamos None
+            return None

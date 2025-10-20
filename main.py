@@ -171,6 +171,7 @@ def apuracao_simples():
         st.session_state.recalcular_aliq = False
     if 'selectbox_index' not in st.session_state:
         st.session_state.selectbox_index = None
+    
     empresa_id = None
 
     # Titulo
@@ -333,7 +334,34 @@ def apuracao_simples():
                         f"Fat Liq {titulo2} ({cnpj2})",
                         f"R$ {fat_matriz_filial2:,.2f}"
                     )
-                    
+    col_vguia, col_btn3, col_gofic = st.columns([1,1,2],vertical_alignment='bottom')
+    valor_real_guia_float = col_vguia.number_input(
+        "Valor da Guia Oficial", 
+        min_value=0.00, 
+        format="%.2f",
+        key='valor_guia_oficial_input'
+    )
+    simples_id = dados_mes['id']
+    if col_btn3.button("Enviar Valor Guia"):
+        if valor_real_guia_float is None:
+            st.error("Por favor, insira o valor real da guia.")
+            return
+        
+        valor_real_guia_decimal = Decimal(str(valor_real_guia_float))
+
+        retorno_erro = simples_repo.inserir_valor_guia(simples_id, valor_real_guia_decimal)
+            
+        if isinstance(retorno_erro, str):
+            st.error(f"❌ Erro ao submeter valor da guia: {retorno_erro}")
+            
+        else: # Retorno é None (Sucesso)
+            # A diferença será lida na próxima corrida
+            st.success('✅ Valor da guia oficial submetido. Os dados serão atualizados.')
+            time.sleep(2)
+            st.rerun()
+
+    col_gofic.metric('Valor Guia Oficial', f"R$ {dados_mes['valor_guia_oficial']:,.2f}")
+
 @st.fragment()
 def cadastro_empresa():
     if 'form_values' not in st.session_state:
@@ -505,7 +533,7 @@ def cadastro_socio():
             if retorno_conexao is None:
                 st.success("Sócio Cadastrado com Sucesso")
 
-                time.sleep(2)
+                time.sleep(3)
 
                 st.session_state.form_socio = {
                 'empresa_id' : None,

@@ -249,6 +249,61 @@ def editar_notas():
             if st.button("Editar Nota"):
                 st.session_state.nota_em_edicao = nota_selecionada 
                 st.rerun()
+
+@st.fragment
+def notas_faltantes():
+    if 'select_box_emp' not in st.session_state:
+        st.session_state.select_box_emp = None
+    with st.expander("🔎 Análise e Conferência de Notas Faltantes", expanded=False):
+        lista_empresas_resultado = empresas_repo.pegar_empresas_matriz()
+        if isinstance(lista_empresas_resultado, str):
+            st.error(f"Erro ao carregar empresas do banco de dados: {lista_empresas_resultado}")
+            return
+        # Caso não haja nenhuma empresa cadastrada gerar lista vazia
+        lista_empresas = lista_empresas_resultado or []
+        # Setando valores para popular o select box chave NOME (CNPJ) valor ID
+        opcoes_empresas = {f"{e['nome']} ({e['cnpj']})": e['id'] for e in lista_empresas}
+        ano_atual = date.today().year
+        opcoes_ano = []
+        for i in range(5):
+            opcoes_ano.append(ano_atual - i)
+        escolha_empresa = st.selectbox(
+            "Selecione Empresa:",
+            options=list(opcoes_empresas.keys()),
+            index=st.session_state.select_box_emp,
+            key='empresas_notas_faltantes'
+        )
+        if escolha_empresa is not None and escolha_empresa in opcoes_empresas:
+            empresa_id = opcoes_empresas[escolha_empresa]
+            st.session_state.select_box_emp = list(opcoes_empresas.keys()).index(escolha_empresa)
+        escolha_ano = st.selectbox(
+            "Ano",
+            options=opcoes_ano,
+            index=0,
+            key='ano_verficar_nota'
+        )
+        escolha_tipo = st.selectbox(
+            "Modelo Nota",
+            options=['nfse_pbh', 'nfce', 'nfse_gov'],
+            index=0,
+            key='tipo_nota'
+        )
+        if st.button('Verificar Numeração'):
+            if escolha_empresa is None:
+                st.error("Selecione uma empresa")
+                return
+            retorno = notas_repo.verificar_numeracao_faltante(empresa_id, escolha_tipo, escolha_ano)
+            if isinstance(retorno, str):
+                st.error(f'Erro ao consultar db: {retorno}')
+                return
+            if not retorno:
+                st.success(f'Não há nenhuma nota faltante')
+                return
+            for e in retorno:
+                st.warning(f'Nota {e} não está na base de dados')
+
+
+
 @st.fragment
 def form_edicao():
     # 1. Recupera o dicionário completo da nota do estado
@@ -714,6 +769,8 @@ with tab1:
     notas()
     st.divider()
     editar_notas()
+    st.divider()
+    notas_faltantes()
 with tab2:
     apuracao_simples()
 with tab3:

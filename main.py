@@ -13,6 +13,7 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 from decimal import Decimal
 import calendar
+import pandas as pd
 
 st.set_page_config(page_title="Portal HUB")
 st.title('Portal HUB')
@@ -156,8 +157,89 @@ def notas():
                 st.success(f"{len(arquivos) - len(erros)} nota(s) processada(s) com sucesso")
         else:
             st.success(f'Todas as {len(arquivos)} notas foram processadas com sucesso!') 
-    
 
+def dados_inciais_editar_nota():
+    lista_empresas = empresas_repo.pegar_empresas()    
+    # Verifica de se teve êxito na consulta de lista de empresas matriz db 
+    if isinstance(lista_empresas, str):
+        st.error(f"Erro ao carregar empresas do banco de dados: {lista_empresas}")
+        return
+    opcoes_empresas = {f"{e['nome']} ({e['cnpj']})": e["id"] for e in lista_empresas}
+    # Gerando valores para popular selectbox mes referencia
+    opcoes_competencia = gerar_opcoes_competencia(meses_para_tras=18)
+    return{
+        'opcoes_empresas' : opcoes_empresas,
+        'opcoes_competencia' : opcoes_competencia
+    }
+
+@st.fragment()
+def editar_notas():
+    dados_editar = dados_inciais_editar_nota()
+    opcoes_empresas = dados_editar['opcoes_empresas']
+    opcoes_competencia = dados_editar['opcoes_competencia']
+
+    # --- INICIALIZAÇÃO DE ESTADO ---
+    if 'selectbox_index' not in st.session_state:
+        st.session_state.selectbox_index = None
+    if 'dados_state' not in st.session_state:
+        st.session_state.dados_state = None
+    if 'selectbox_index_notas' not in st.session_state:
+        st.session_state.selectbox_index_notas = None
+    # Layout selectbox empresa e competencia
+    with st.form("procurar_nota"):
+        st.subheader('Editar Notas')
+        col_empresa, col_data = st.columns([3,1])
+        empresa_escolha = col_empresa.selectbox(
+            "Selecione a empresa:",
+            options=list(opcoes_empresas.keys()),
+            index=st.session_state.selectbox_index,
+            placeholder="Digite para buscar...",
+            key='empresas_prourar_nota'
+        )
+        if empresa_escolha is not None and empresa_escolha in opcoes_empresas: 
+            empresa_id = opcoes_empresas[empresa_escolha]
+            st.session_state.selectbox_index = list(opcoes_empresas.keys()).index(empresa_escolha)
+        # select box mes referencia
+        competencia_escolhida_str = col_data.selectbox(
+            "Mês de Referência:",
+            options=opcoes_competencia,
+            index=1, 
+            key='mes_referencia_editar'
+        )
+        # tratando valores da seleção mes referencia para data 1º dia do mes
+        mes, ano = map(int, competencia_escolhida_str.split('/'))
+        mes_ref_date = date(ano, mes, 1)
+        procurar_nota_btn = st.form_submit_button('Procurar')
+        if procurar_nota_btn:
+            if empresa_escolha is None:
+                st.error("Escolha uma empresa")
+                return
+            dados_notas = notas_repo.pegar_notas_empresa_periodo(empresa_id, mes_ref_date)
+            if isinstance(dados_notas, str): # Trata erro do repositório
+                st.error(f"Erro ao buscar notas: {dados_notas}")
+                return
+            st.session_state.dados_state = dados_notas
+            st.rerun()
+
+    if st.session_state.dados_state is not None:
+        dados_notas = st.session_state.dados_state    
+        if not dados_notas:
+             st.info("Nenhuma nota fiscal encontrada para o período.")
+             return
+        opcoes_notas = {f"{n['data_emissao']} - {n['numero']} - {n['tomador_nome']} - {n['valor_total']}" : n['id'] for n in dados_notas}
+        nota_escolha = st.selectbox(
+            "Selecione Nota",
+            options=list(opcoes_notas.keys()),
+            index=st.session_state.selectbox_index_notas,
+            placeholder="Procura Nota",
+            key='lista_notas'
+        )
+        if nota_escolha is not None and nota_escolha in opcoes_notas: 
+            nota_id = opcoes_notas[nota_escolha]
+            st.write(nota_id) 
+            st.session_state.selectbox_index_notas = list(opcoes_notas.keys()).index(nota_escolha)
+               
+        
 @st.fragment()
 def apuracao_simples():
     # Carregando dados iniciais
@@ -552,6 +634,7 @@ def cadastro_socio():
 with tab1:
     notas()
     st.divider()
+    editar_notas()
 with tab2:
     apuracao_simples()
 with tab3:

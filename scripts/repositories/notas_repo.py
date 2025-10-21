@@ -241,3 +241,37 @@ class NotasRepository:
             
         # Converte a lista de tuplas (números inteiros) para uma lista simples de ints
         return [r[0] for r in resultados]
+    
+    def pegar_notas_empresa_periodo(self, empresa_id : int, mes_ref : date):
+        query = """
+            SELECT id, numero, data_emissao, tomador_nome, valor_total, valor_iss, cfop, e_cancelada 
+            FROM notas
+            WHERE empresa_id = %s
+                AND mes_ref = %s
+            ORDER BY data_emissao ASC
+            ;
+        """
+        args = (empresa_id, mes_ref)
+
+        resultados = self._db._execute_query(query, args, fetch_one=False)
+        if isinstance(resultados, str):
+            return resultados # Retorna erro do DB
+        
+        if not resultados:
+            return []
+        
+        dados = []
+
+        for r in resultados:
+            dados.append({
+            'id': r[0],
+            'numero': r[1],
+            'data_emissao': r[2],
+            'tomador_nome': r[3],
+            'valor_total': r[4],
+            'valor_iss': r[5],
+            'cfop': r[6],
+            'e_cancelada': r[7]
+        })
+        
+        return dados

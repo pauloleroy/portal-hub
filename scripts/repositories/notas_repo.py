@@ -275,3 +275,17 @@ class NotasRepository:
         })
         
         return dados
+    
+    def atualizar_nota(self, nota_id : int, data_emissao : date, mes_ref: date, valor_total : Decimal, valor_iss : Decimal, cfop : str, e_cancelada : bool) -> str | None:
+        query = """
+            UPDATE notas
+            SET data_emissao = %s,
+                mes_ref = %s,
+                valor_total = %s,
+                valor_iss = %s,
+                cfop = %s,
+                e_cancelada = %s
+            WHERE id = %s;
+        """
+        args = (data_emissao, mes_ref, valor_total, valor_iss, cfop, e_cancelada, nota_id)
+        return self._db._execute_query(query, args, commit=True)

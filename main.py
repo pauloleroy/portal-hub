@@ -185,6 +185,14 @@ def editar_notas():
         st.session_state.dados_state = None
     if 'selectbox_index_notas' not in st.session_state:
         st.session_state.selectbox_index_notas = None
+    if 'nota_em_edicao' not in st.session_state:
+        st.session_state.nota_em_edicao = None
+
+    #FORMULARIO EDITAR NOTA
+    if st.session_state.nota_em_edicao is not None:
+        form_edicao()
+        return
+
     # Layout selectbox empresa e competencia
     with st.form("procurar_nota"):
         st.subheader('Editar Notas')
@@ -222,7 +230,7 @@ def editar_notas():
             st.rerun()
 
     if st.session_state.dados_state is not None:
-        dados_notas = st.session_state.dados_state    
+        dados_notas = st.session_state.dados_state
         if not dados_notas:
              st.info("Nenhuma nota fiscal encontrada para o período.")
              return
@@ -235,11 +243,80 @@ def editar_notas():
             key='lista_notas'
         )
         if nota_escolha is not None and nota_escolha in opcoes_notas: 
-            nota_id = opcoes_notas[nota_escolha]
-            st.write(nota_id) 
-            st.session_state.selectbox_index_notas = list(opcoes_notas.keys()).index(nota_escolha)
-               
-        
+            indice_selecionado = list(opcoes_notas.keys()).index(nota_escolha)
+            nota_selecionada = dados_notas[indice_selecionado] 
+            st.session_state.selectbox_index_notas = indice_selecionado # Guarda o índice
+            if st.button("Editar Nota"):
+                st.session_state.nota_em_edicao = nota_selecionada 
+                st.rerun()
+@st.fragment
+def form_edicao():
+    # 1. Recupera o dicionário completo da nota do estado
+    nota_dados = st.session_state.nota_em_edicao 
+    
+    st.header(f"✏️ Editando Nota: {nota_dados['numero']}")
+
+    with st.form("form_edicao_nota"):
+        col1_1, col1_2, col1_3 = st.columns(3, vertical_alignment='bottom')
+        col2_1, col2_2, col2_3 = st.columns(3)
+        col1_1.caption(f"ID no DB: {nota_dados['id']} | Tomador: {nota_dados['tomador_nome']}")
+        nova_data_emissao = col1_2.date_input(
+            'Data de Emissão', 
+            value=nota_dados.get('data_emissao'), 
+            max_value=datetime.now().date(), 
+            min_value=datetime(2010, 1, 1),
+            format= "DD/MM/YYYY"
+        )
+        novo_status_cancelada = col1_3.checkbox(
+            "Nota Cancelada",
+            value=nota_dados.get('e_cancelada', False) 
+        )
+        novo_valor_total = col2_1.number_input(
+            "Valor Total", 
+            value=float(nota_dados.get('valor_total', 0.0)),
+            min_value=0.0, 
+            format="%.2f"
+        )
+        novo_valor_iss = col2_2.number_input(
+            "Valor ISS", 
+            value=float(nota_dados.get('valor_iss', 0.0)),
+            min_value=0.0, 
+            format="%.2f"
+        )
+        novo_cfop = col2_3.text_input(
+            'CFOP',
+            value=nota_dados.get('cfop'),
+            max_chars=4
+        )
+        if st.form_submit_button("💾 Salvar"):
+            #Tratando dados para enviar db
+            id_db = nota_dados.get('id')
+            data_emissao_db = nova_data_emissao
+            mes_ref_db = nova_data_emissao.replace(day=1)
+            status_cancelada_db = novo_status_cancelada
+            valor_total_db = Decimal(str(novo_valor_total))
+            valor_iss_db = Decimal(str(novo_valor_iss))
+            cfop_db = novo_cfop
+            retorno_update = notas_repo.atualizar_nota(id_db, data_emissao_db, mes_ref_db, valor_total_db, valor_iss_db, cfop_db, status_cancelada_db)
+
+            if isinstance(retorno_update, str):
+                st.error(retorno_update)
+                return
+
+            st.success("Nota salva! Retornando...")
+            
+            # Limpa o estado para sair do Modo Edição
+            st.session_state.nota_em_edicao = None
+            st.session_state.dados_state = None
+            st.session_state.selectbox_index_notas = 0 
+            st.rerun()
+
+    if st.button("Cancelar Edição"):
+        st.session_state.nota_em_edicao = None
+        st.rerun()              
+
+
+
 @st.fragment()
 def apuracao_simples():
     # Carregando dados iniciais
@@ -298,6 +375,8 @@ def apuracao_simples():
         return
     # Pegando da db anexo da empresa selecionada
     dados_renderizar = dados_renderizar_simples(empresa_id, mes_ref_date)
+    if dados_renderizar is None:
+        return
     anexo = dados_renderizar['anexo']
     dados_mes = dados_renderizar['dados_mes']
     lista_filiais = dados_renderizar['lista_filiais']

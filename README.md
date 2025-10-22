@@ -30,6 +30,10 @@ Base de Dados: Utilização de PostgreSQL para persistência de todos os dados f
 
 🗺️ Próximas Funcionalidades (Pós-MVP)
 
+[ ] Definição Fator R e import de folhas.
+
+[ ] Incluir nota manualmente
+
 [ ] Incluir importação de NFSe padrão nacional (gov.br).
 
 [ ] Implementar formulários de edição para Empresas e Sócios (atualmente via PgAdmin).
